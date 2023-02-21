@@ -11,7 +11,7 @@ library(DT)
 
 source("helpers.R")
 
-ui <- navbarPage("FishStat Production Data",
+ui <- function(request){navbarPage("FishStat Production Data",
        #  tabPanel("Home",
        #   fluidPage(
        #      mainPanel(
@@ -48,7 +48,7 @@ ui <- navbarPage("FishStat Production Data",
           )
         )
       )
-
+}
 server <- function(input, output, session) {
   
   observeEvent(input$species_country, { # Make the choices for production source conditional on the other inputs
@@ -247,8 +247,15 @@ server <- function(input, output, session) {
       formatRound(c("share"), 1) %>%
       formatCurrency("value", currency = "", interval = 3, mark = " ", digits = 0)
   })
-  
+ 
+  observe({
+    reactiveValuesToList(input)
+    session$doBookmark()
+  })
+  # Update the query string
+  onBookmarked(updateQueryString)
+   
 }
 
 # Run the application 
-shinyApp(ui = ui, server = server)
+shinyApp(ui = ui, server = server, enableBookmarking = "url")
