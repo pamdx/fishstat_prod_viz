@@ -53,11 +53,15 @@ server <- function(input, output, session) {
   
   observeEvent(input$species_country, { # Make the choices for production source conditional on the other inputs
     freezeReactiveValue(input, "source_country")
-    updateCheckboxGroupInput(inputId = "source_country", choices = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name), selected = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name))
+    updateCheckboxGroupInput(inputId = "source_country", choices = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name)
+                             #, selected = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name)
+                             )
   })  
   observeEvent(input$year_country, {
     freezeReactiveValue(input, "source_country")
-    updateCheckboxGroupInput(inputId = "source_country", choices = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name), selected = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name))
+    updateCheckboxGroupInput(inputId = "source_country", choices = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name)
+                             #, selected = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name)
+                             )
   })
   
   # Map of fishing areas by commodity production
@@ -101,7 +105,7 @@ server <- function(input, output, session) {
            year == input$year_country,
            production_source_name %in% input$source_country) %>%
       rename(z = value) %>%
-      group_by(conc_isscaap_group, iso2_code, country, year, lat, lon) %>%
+      group_by(conc_isscaap_group, iso2_code, country, year, unit, lat, lon) %>%
       summarise(z = sum(z)) %>%
       group_by() %>%
       mutate(total = sum(z)) %>%
@@ -143,7 +147,7 @@ server <- function(input, output, session) {
                     color = ifelse(all(input$source_country == "Capture production"),  '#377eb8', 
                                    ifelse(all(input$source_country == "Aquaculture production"), '#4daf4a', 
                                           ifelse(length(input$source_country) > 1, '#984ea3', '#984ea3'))),
-                    tooltip = list(pointFormat = "Country: {point.country}<br>ISSCAAP group: {point.conc_isscaap_group}<br>Year: {point.year}<br>Production (tonnes): {point.value_formatted}<br>Share: {point.share}")) %>%
+                    tooltip = list(pointFormat = "Country: {point.country}<br>ISSCAAP group: {point.conc_isscaap_group}<br>Year: {point.year}<br>Production: {point.value_formatted}<br> Unit: {point.unit}<br>Share of world production: {point.share}")) %>%
       hc_title(text = paste0(ifelse(length(input$source_country) > 1, "Capture and aquaculture production", input$source_country), " of ", tolower(prod_raw_ISSCAAP[prod_raw_ISSCAAP$conc_isscaap_group == input$species_country,]$isscaap_group_en[[1]]), ", ", input$year_country)) %>%
       hc_subtitle(text = paste0('Total ', ifelse(length(input$source_country) > 1, "capture and aquaculture production", tolower(input$source_country)), " (tonnes): ", data_total(), ", number of producing countries: ", data_n())) %>%
       hc_mapNavigation(enabled = T) %>%
@@ -253,7 +257,9 @@ server <- function(input, output, session) {
     session$doBookmark()
   })
   # Update the query string
-  onBookmarked(updateQueryString)
+  onBookmarked(function(url) {
+    updateQueryString(url)
+  })
    
 }
 

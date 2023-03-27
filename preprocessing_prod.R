@@ -83,8 +83,8 @@ saveRDS(cou_coordinates, "cou_coordinates.RDS")
 
 prod_raw <- prod_raw %>%
   left_join(y = cou_coordinates, by = c("iso2_code" = "ISO2")) %>%
-  rename(lat = latitude, lon = longitude) %>%
-  filter(yearbook_group_en == "Fish, crustaceans and molluscs, etc.")
+  rename(lat = latitude, lon = longitude) # %>%
+  # filter(yearbook_group_en == "Fish, crustaceans and molluscs, etc.")
 
 saveRDS(prod_raw, "prod_raw.RDS")
 
