@@ -30,9 +30,10 @@ ui <- function(request){navbarPage("FishStat Production Data",
           sidebarLayout(
             sidebarPanel(
               # selectInput('country','Country', choices = unique(prod_raw_ISSCAAP$country), selected = sample(unique(prod_raw_ISSCAAP$country), 1)),
-              selectInput('species_country','ISSCAAP group', choices = sort(unique(prod_raw_ISSCAAP$conc_isscaap_group)), selected = sample(unique(prod_raw_ISSCAAP$conc_isscaap_group), 1)), 
+              selectInput('species_country','ISSCAAP group', choices = c("Please select...", sort(unique(prod_raw_ISSCAAP$conc_isscaap_group)))), 
               selectInput('year_country','Year', choices = sort(unique(prod_raw_ISSCAAP$year), decreasing = TRUE), selected = max(unique(prod_raw_ISSCAAP$year))),
-              checkboxGroupInput('source_country','Production source', choices = c("Capture production", "Aquaculture production")),
+              checkboxGroupInput('source_country','Production source', choices = c("Aquaculture production", "Capture production")),
+              bookmarkButton(label = "Share this view", icon = shiny::icon("share", lib = "font-awesome")),
               width=2
             ),
             mainPanel(
@@ -51,17 +52,11 @@ ui <- function(request){navbarPage("FishStat Production Data",
 }
 server <- function(input, output, session) {
   
-  observeEvent(input$species_country, { # Make the choices for production source conditional on the other inputs
+  observeEvent(c(input$species_country, input$year_country), ignoreInit = T,{ # Make the choices for production source conditional on the other inputs
     freezeReactiveValue(input, "source_country")
-    updateCheckboxGroupInput(inputId = "source_country", choices = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name)
-                             #, selected = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name)
-                             )
-  })  
-  observeEvent(input$year_country, {
-    freezeReactiveValue(input, "source_country")
-    updateCheckboxGroupInput(inputId = "source_country", choices = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name)
-                             #, selected = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name)
-                             )
+    updateCheckboxGroupInput(inputId = "source_country", choices = sort(unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name))
+                             , selected = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name)
+    )
   })
   
   # Map of fishing areas by commodity production
@@ -137,6 +132,15 @@ server <- function(input, output, session) {
       pull()}
   )
   
+  data_unit <- eventReactive(input$source_country, {
+    prod_raw_ISSCAAP %>%
+      filter(conc_isscaap_group == input$species_country,
+             year == input$year_country,
+             production_source_name %in% input$source_country) %>%
+      summarise(unit = first(unit)) %>%
+      pull()}
+  )
+  
   output$countrymap <- renderHighchart(
     highchart(type = "map") %>%
       hc_add_series(mapData = map, showInLegend = F) %>%
@@ -149,13 +153,13 @@ server <- function(input, output, session) {
                                           ifelse(length(input$source_country) > 1, '#984ea3', '#984ea3'))),
                     tooltip = list(pointFormat = "Country: {point.country}<br>ISSCAAP group: {point.conc_isscaap_group}<br>Year: {point.year}<br>Production: {point.value_formatted}<br> Unit: {point.unit}<br>Share of world production: {point.share}")) %>%
       hc_title(text = paste0(ifelse(length(input$source_country) > 1, "Capture and aquaculture production", input$source_country), " of ", tolower(prod_raw_ISSCAAP[prod_raw_ISSCAAP$conc_isscaap_group == input$species_country,]$isscaap_group_en[[1]]), ", ", input$year_country)) %>%
-      hc_subtitle(text = paste0('Total ', ifelse(length(input$source_country) > 1, "capture and aquaculture production", tolower(input$source_country)), " (tonnes): ", data_total(), ", number of producing countries: ", data_n())) %>%
+      hc_subtitle(text = paste0('Total ', ifelse(length(input$source_country) > 1, "capture and aquaculture production", tolower(input$source_country)), " (", tolower(data_unit()) ,"): ", data_total(), ", number of producing countries: ", data_n())) %>%
       hc_mapNavigation(enabled = T) %>%
       hc_legend(enabled = TRUE, 
                 layout = "horizontal", 
                 align = "right",
                 verticalAlign = "bottom") %>%
-      hc_caption(text = "<center>Note: the data presented only includes aquatic animals.</center>") %>%
+      # hc_caption(text = "<center>Note: the data presented only includes aquatic animals.</center>") %>%
       hc_exporting(enabled = TRUE, 
                    buttons = list(
                      contextButton = list(
@@ -200,9 +204,9 @@ server <- function(input, output, session) {
       hc_xAxis(title = list(text = "Country")) %>%
       hc_yAxis(title = list(text = "Share"),
                labels = list(format = "{value}%")) %>%
-      hc_title(text = paste0("Share of ", ifelse(length(input$source_country) > 1, "capture and aquaculture production", tolower(input$source_country)), ", ", tolower(prod_raw_ISSCAAP[prod_raw_ISSCAAP$conc_isscaap_group == input$species_country,]$isscaap_group_en[[1]]), ", ", input$year_country)) %>%
-      hc_subtitle(text = paste0('Total ', ifelse(length(input$source_country) > 1, "capture and aquaculture production", tolower(input$source_country)), " (tonnes): ", data_total(), ", number of producing countries: ", data_n())) %>%
-      hc_caption(text = "Note: the 'Others' category groups all countries with a share of production lower than 1%.") %>%
+      hc_title(text = paste0("Share of world ", ifelse(length(input$source_country) > 1, "capture and aquaculture production", tolower(input$source_country)), ", ", tolower(prod_raw_ISSCAAP[prod_raw_ISSCAAP$conc_isscaap_group == input$species_country,]$isscaap_group_en[[1]]), ", ", input$year_country)) %>%
+      hc_subtitle(text = paste0('Total ', ifelse(length(input$source_country) > 1, "capture and aquaculture production", tolower(input$source_country)), " (", tolower(data_unit()) ,"): ", data_total(), ", number of producing countries: ", data_n())) %>%
+      hc_caption(text = "Note: the 'Others' category groups all countries with a share of world production lower than 1%.") %>%
       hc_exporting(enabled = TRUE, 
                    buttons = list(
                      contextButton = list(
@@ -252,15 +256,29 @@ server <- function(input, output, session) {
       formatCurrency("value", currency = "", interval = 3, mark = " ", digits = 0)
   })
  
-  observe({
-    reactiveValuesToList(input)
-    session$doBookmark()
+  # Save app state to URL
+  
+  # observe({
+  #   reactiveValuesToList(input)
+  #   session$doBookmark()
+  # })
+  # onBookmarked(updateQueryString)
+  
+  # Save extra values in state$values when we bookmark
+  onBookmark(function(state) {
+    state$values$prodsource <- input$source_country
   })
-  # Update the query string
-  onBookmarked(function(url) {
-    updateQueryString(url)
+  
+  # Read values from state$values when we restore
+  onRestored(function(state) {
+    
+    updateCheckboxGroupInput(inputId = "source_country", choices = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name),
+                             selected = state$values$prodsource
+    )
+    
+    # input$source_country <- state$values$prodsource
   })
-   
+  
 }
 
 # Run the application 

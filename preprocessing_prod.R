@@ -5,7 +5,7 @@ library(dplyr)
 library(janitor)
 library(highcharter)
 
-# Get trade data by partner
+# Get production data from FAO's server
 
 temp <- tempfile()
 download.file("https://www.fao.org/fishery/static/Data/GlobalProduction_2022.1.1.zip", temp)
