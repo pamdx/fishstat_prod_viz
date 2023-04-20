@@ -5,6 +5,7 @@ library(tidyr)
 library(tibble)
 library(readr)
 library(DT)
+library(shinyfullscreen)
 
 # library(rsconnect)
 # deployApp()
@@ -12,42 +13,34 @@ library(DT)
 source("helpers.R")
 
 ui <- function(request){navbarPage("FishStat Production Data",
-       #  tabPanel("Home",
-       #   fluidPage(
-       #      mainPanel(
-       #        h1("Welcome"),
-       #        p("This website features interactive visualizations to explore FAO's", a(href="https://www.fao.org/fishery/en/collection/global_production?lang=en", "Global Production", target="_blank"), "dataset."),
-       #        p("In the", strong("Global Overview"), "section, you will find a visualization of the intercontinental trade of fish products. Go ahead and use the", em("Country highlight"), "filter to see how your country trades with the rest of the world. The", em("Heatmap"), "tab displays this information as a heatmap."),
-       #        p("In the", strong("Country Overview"), "section, you can explore in details how the country of your choice trades with its partner countries around the world. The data is represented on a map, but you can also see more details about the data by clicking on the", em("Table"), "tab. Finally, see a chart of the selected country's main trading partners in the", em("Chart"), "tab."),
-       #        p("We hope you enjoy this website. Click ", a(href="https://www.fao.org/fishery/en/statistics", "here", target="_blank"), "if you want to learn more about FAO's Fisheries and Aquaculture statistics."),
-       #        h2("Notes"),
-       #        p("Differences between figures given for total exports and total imports of any one commodity may be due to several factors, e.g. the time lapse between the dispatch of goods from the exporting country and their arrival in the importing country; the use of a different classification of the same product by different countries; or the fact that some countries supply trade data on general trade, while others give data on special trade."),
-       #        p("Created by", a(href='https://pamdx.github.io/personal_site/index.html', 'Pierre Maudoux', target='_blank'), "(FAO). See the", a(href='https://github.com/pamdx/fishstat_trade_viz', 'source code', target='_blank'), "on GitHub.")
-       #      )
-       #   )
-       # ),
+        tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "styling.css")), # Define fullscreen background color using CSS to prevent black background when using fullscreen button
         tabPanel("Data explorer",
           sidebarLayout(
             sidebarPanel(
-              # selectInput('country','Country', choices = unique(prod_raw_ISSCAAP$country), selected = sample(unique(prod_raw_ISSCAAP$country), 1)),
-              selectInput('species_country','ISSCAAP group', choices = c("Please select...", sort(unique(prod_raw_ISSCAAP$conc_isscaap_group)))), 
+              selectInput('species_country','ISSCAAP group', choices = c("Please select...", sort(unique(prod_raw_ISSCAAP$conc_isscaap_group)))),
               selectInput('year_country','Year', choices = sort(unique(prod_raw_ISSCAAP$year), decreasing = TRUE), selected = max(unique(prod_raw_ISSCAAP$year))),
               checkboxGroupInput('source_country','Production source', choices = c("Aquaculture production", "Capture production")),
-              bookmarkButton(label = "Share this view", icon = shiny::icon("share", lib = "font-awesome")),
-              width=2
+              hr(),
+              bookmarkButton(label = "Share this view", icon = shiny::icon("share-alt", lib = "font-awesome")),
+              br(),
+              br(),
+              img(src="https://www.fao.org/images/corporatelibraries/fao-logo/fao-logo-en.svg?sfvrsn=f64522b4_33", width = "100%"),
+              width = 2
             ),
             mainPanel(
               tabsetPanel(
-                # tabPanel("By FAO fishing area", highchartOutput('famap', height = "700px")),
-                tabPanel("By Country", highchartOutput("countrymap", height = "700px")),
+                tabPanel("Map", highchartOutput("countrymap", height = "700px")),
                 tabPanel("Chart", highchartOutput("chart", height = "700px")),
-                # tabPanel("Over time", highchartOutput("linechart", height = "700px")),
-                # tabPanel("By environment", highchartOutput("environmentchart", height = "700px")),
                 tabPanel("Table", DT::dataTableOutput("data_table", height = "700px")),
               )
             )
           )
-        )
+        ),
+       fixedPanel(
+         fullscreen_button("full_screen", label = "", icon = shiny::icon("expand", lib = "font-awesome"), target = NULL),
+         right = 326,
+         top = 79
+       )
       )
 }
 server <- function(input, output, session) {
@@ -58,39 +51,6 @@ server <- function(input, output, session) {
                              , selected = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name)
     )
   })
-  
-  # Map of fishing areas by commodity production
-  
-  # data_fa_map <- reactive(
-  #   prod_raw_ISSCAAP %>%
-  #     filter(conc_isscaap_group == input$species_country,
-  #            year == input$year_country,
-  #            production_source_name %in% input$source_country) %>%
-  #     mutate(conc_fishing_area = paste(fishing_area_code, "-", fishing_area_name), 
-  #            fishing_area_code = as.integer(fishing_area_code)) %>%
-  #     group_by(conc_isscaap_group, fishing_area_code, conc_fishing_area, year) %>%
-  #     summarise(value = sum(value)) %>%
-  #     group_by() %>%
-  #     mutate(total = sum(value)) %>%
-  #     ungroup() %>%
-  #     mutate(value_formatted = addUnits(value)) %>%
-  #     mutate(share = sprintf("%0.1f%%", value/total*100))
-  #   )
-  # 
-  # output$famap <- renderHighchart(
-  #   highchart() %>%
-  #     hc_title(text = "Production by FAO fishing area") %>%
-  #     hc_subtitle(text = "In tonnes - live weight") %>%
-  #     hc_add_series_map(
-  #       map = fishing_areas,
-  #       df = data_fa_map(), 
-  #       joinBy = c("F_CODE","fishing_area_code"),
-  #       name = "Production by FAO fishing area",
-  #       value = "value",
-  #       tooltip = list(pointFormat = "FAO Fishing Area: {point.conc_fishing_area}<br>Production (tonnes): {point.value_formatted}<br>Year: {point.year}") %>%
-  #         hc_caption(text = "Data only includes aquatic animals.")
-  #     )
-  # )
   
   # Map of country production by commodity
   
@@ -118,6 +78,36 @@ server <- function(input, output, session) {
       summarise(value = sum(value)) %>%
       pull() %>%
       addUnits()}
+  )
+  
+  data_capture_share <- eventReactive(input$source_country, {
+      if (length(input$source_country) > 1) {
+        prod_raw_ISSCAAP %>%
+          filter(conc_isscaap_group == input$species_country,
+                 year == input$year_country,
+                 production_source_name %in% input$source_country) %>%
+          group_by(production_source_name) %>%
+          summarise(value = sum(value)) %>%
+          mutate(share = round(value/sum(value)*100, 0)) %>% 
+          filter(production_source_name == "Capture production") %>%
+          pull(share)
+      }
+    }
+  )
+  
+  data_aquaculture_share <- eventReactive(input$source_country, {
+    if (length(input$source_country) > 1) {
+      prod_raw_ISSCAAP %>%
+        filter(conc_isscaap_group == input$species_country,
+               year == input$year_country,
+               production_source_name %in% input$source_country) %>%
+        group_by(production_source_name) %>%
+        summarise(value = sum(value)) %>%
+        mutate(share = round(value/sum(value)*100, 0)) %>% 
+        filter(production_source_name == "Aquaculture production") %>%
+        pull(share)
+    }
+  }
   )
   
   data_n <- eventReactive(input$source_country, {
@@ -153,7 +143,7 @@ server <- function(input, output, session) {
                                           ifelse(length(input$source_country) > 1, '#984ea3', '#984ea3'))),
                     tooltip = list(pointFormat = "Country: {point.country}<br>ISSCAAP group: {point.conc_isscaap_group}<br>Year: {point.year}<br>Production: {point.value_formatted}<br> Unit: {point.unit}<br>Share of world production: {point.share}")) %>%
       hc_title(text = paste0(ifelse(length(input$source_country) > 1, "Capture and aquaculture production", input$source_country), " of ", tolower(prod_raw_ISSCAAP[prod_raw_ISSCAAP$conc_isscaap_group == input$species_country,]$isscaap_group_en[[1]]), ", ", input$year_country)) %>%
-      hc_subtitle(text = paste0('Total ', ifelse(length(input$source_country) > 1, "capture and aquaculture production", tolower(input$source_country)), " (", tolower(data_unit()) ,"): ", data_total(), ", number of producing countries: ", data_n())) %>%
+      hc_subtitle(text = paste0('Total ', ifelse(length(input$source_country) > 1, "production", tolower(input$source_country)), " (", tolower(data_unit()) ,"): ", data_total(), ifelse(length(input$source_country) > 1, paste0(" (", data_capture_share(), "% capture, ", data_aquaculture_share(), "% aquaculture)"), ""), ", number of producing countries: ", data_n())) %>%
       hc_mapNavigation(enabled = T) %>%
       hc_legend(enabled = TRUE, 
                 layout = "horizontal", 
