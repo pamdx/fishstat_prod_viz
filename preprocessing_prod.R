@@ -8,8 +8,8 @@ library(highcharter)
 # Get production data from FAO's server
 
 temp <- tempfile()
-download.file("https://www.fao.org/fishery/static/Data/GlobalProduction_2022.1.1.zip", temp)
-data <- read_csv(unz(temp, "Global_production_Quantity.csv")) %>%
+download.file("https://www.fao.org/fishery/static/Data/GlobalProduction_2023.1.1.zip", temp)
+data <- read_csv(unz(temp, "Global_production_quantity.csv")) %>%
   clean_names()
 countries <- read_csv(unz(temp, "CL_FI_COUNTRY_GROUPS.csv"), na = "") %>% # adding na = "" so that Namibia's ISO2 code isn't interpreted as a missing value
   clean_names() %>%
@@ -57,7 +57,7 @@ prod_raw <- data %>%
 
 prod_raw$iso2_code[prod_raw$country == "Czechoslovakia"] <- "CZ" # Fix lack of ISO2 for Czechoslovakia
 prod_raw$iso2_code[prod_raw$country == "Sudan (former)"] <- "SD" # Fix lack of ISO2 for Sudan (former)
-prod_raw$iso2_code[prod_raw$country == "Zanzibar"] <- "ZZ" # Fix lack of ISO2 for Zanzibar (unofficial)
+prod_raw$iso2_code[prod_raw$country == "United Republic of Tanzania, Zanzibar"] <- "ZZ" # Fix lack of ISO2 for Zanzibar (unofficial)
 prod_raw$iso2_code[prod_raw$country == "Channel Islands"] <- "CP" # Fix lack of ISO2 for Channel Islands (unofficial)
 prod_raw$iso2_code[prod_raw$country == "Sint Maarten"] <- "SX" # Fix lack of ISO2 for Sint Maarten (unofficial)
 prod_raw$iso2_code[prod_raw$country == "Saint-Martin (French)"] <- "SF" # Fix lack of ISO2 for Saint-Martin (French) (unofficial)
@@ -83,34 +83,50 @@ saveRDS(cou_coordinates, "cou_coordinates.RDS")
 
 prod_raw <- prod_raw %>%
   left_join(y = cou_coordinates, by = c("iso2_code" = "ISO2")) %>%
-  rename(lat = latitude, lon = longitude) # %>%
-  # filter(yearbook_group_en == "Fish, crustaceans and molluscs, etc.")
+  rename(lat = latitude, lon = longitude)
 
-saveRDS(prod_raw, "prod_raw.RDS")
+# Aggregate data at species group level
 
-# Aggregate data at ISSCAAP group level
-
-isscaap_classif <- read_csv("https://raw.githubusercontent.com/openfigis/RefData/gh-pages/species/CL_FI_SPECIES_ISSCAAP_GROUP.csv") %>%
+isscaap_classif <- read_csv("https://raw.githubusercontent.com/openfigis/RefData/gh-pages/species/CL_FI_SPECIES_ISSCAAP_GROUP.csv", col_types = "ccccc", col_select = c(ISSCAAP_Code, Name_En)) %>%
   rename(isscaap_group_code = ISSCAAP_Code, isscaap_group_en = Name_En) %>%
-  select(isscaap_group_code, isscaap_group_en) %>%
-  mutate(conc_isscaap_group = paste(isscaap_group_code, "-", isscaap_group_en))
+  mutate(conc_isscaap_group = paste(isscaap_group_code, "-", isscaap_group_en),
+         isscaap_division_code = substr(isscaap_group_code, 1, 1)) %>%
+  left_join(read_csv("https://raw.githubusercontent.com/openfigis/RefData/gh-pages/species/CL_FI_SPECIES_ISSCAAP_DIVISION.csv", col_types = "ccccc", col_select = c(ISSCAAP_Code, Name_En)), by = c("isscaap_division_code" = "ISSCAAP_Code")) %>%
+  rename(isscaap_division_en = Name_En) %>%
+  mutate(conc_isscaap_division = paste(isscaap_division_code, "-", isscaap_division_en))
 
-prod_raw_ISSCAAP <- prod_raw %>%
-  group_by_at(vars(-c("3alpha_code", "species_name", "scientific_name", "value"))) %>%
+# Yearbook selection
+
+prod_yearbook_selection <- prod_raw %>%
+  left_join(isscaap_classif) %>%
+  group_by(country, yearbook_group_en, production_source_name, unit, year, lat, lon) %>%
   summarise(value = sum(value)) %>%
   ungroup() %>%
-  left_join(isscaap_classif)
+  rename(species_group = yearbook_group_en)
 
-saveRDS(prod_raw_ISSCAAP, "prod_raw_ISSCAAP.RDS")
+saveRDS(prod_yearbook_selection, "prod_yearbook_selection.RDS")
 
-# Aggregate data at country level
+# ISSCAAP division
 
-prod_raw_agg <- prod_raw_ISSCAAP %>%
-  group_by_at(vars(-c("isscaap_group_en", "isscaap_group_code", "conc_isscaap_group", "value"))) %>%
+prod_ISSCAAP_division <- prod_raw %>%
+  left_join(isscaap_classif) %>%
+  group_by(country, isscaap_division_code, isscaap_division_en, conc_isscaap_division, production_source_name, unit, year, lat, lon) %>%
   summarise(value = sum(value)) %>%
-  ungroup()
+  ungroup() %>%
+  rename(species_group = conc_isscaap_division)
 
-saveRDS(prod_raw_agg, "prod_raw_agg.RDS")
+saveRDS(prod_ISSCAAP_division, "prod_ISSCAAP_division.RDS")
+
+# ISSCAAP group
+
+prod_ISSCAAP_group <- prod_raw %>%
+  left_join(isscaap_classif) %>%
+  group_by(country, isscaap_group_code, isscaap_group_en, conc_isscaap_group, production_source_name, unit, year, lat, lon) %>%
+  summarise(value = sum(value)) %>%
+  ungroup() %>%
+  rename(species_group = conc_isscaap_group)
+
+saveRDS(prod_ISSCAAP_group, "prod_ISSCAAP_group.RDS")
 
 # Download map for HC viz
 

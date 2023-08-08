@@ -11,15 +11,11 @@ hc_export_options <- c("downloadPNG", "downloadJPEG", "downloadPDF", "downloadSV
 
 # Load data
 
-cou_coordinates <- readRDS("cou_coordinates.RDS")
+data_division <- readRDS("prod_ISSCAAP_division.RDS")
 
-prod_raw <- readRDS("prod_raw.RDS")
+data_group <- readRDS("prod_ISSCAAP_group.RDS")
 
-prod_raw_ISSCAAP <- readRDS("prod_raw_ISSCAAP.RDS")
-
-fishing_areas <- jsonlite::fromJSON(txt = "./FAO_fishing_areas.json", simplifyVector = FALSE)
-
-fishing_area_centroids <- readRDS("fishing_area_centroids.RDS")
+data_yearbook <- readRDS("prod_yearbook_selection.RDS")
 
 map <- readRDS("map.RDS")
 

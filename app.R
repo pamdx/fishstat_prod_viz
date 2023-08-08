@@ -13,13 +13,27 @@ library(shinyfullscreen)
 source("helpers.R")
 
 ui <- function(request){navbarPage("FishStat Production Data",
-        tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "styling.css")), # Define fullscreen background color using CSS to prevent black background when using fullscreen button
         tabPanel("Data explorer",
           sidebarLayout(
             sidebarPanel(
-              selectInput('species_country','ISSCAAP group', choices = c("Please select...", sort(unique(prod_raw_ISSCAAP$conc_isscaap_group)))),
-              selectInput('year_country','Year', choices = sort(unique(prod_raw_ISSCAAP$year), decreasing = TRUE), selected = max(unique(prod_raw_ISSCAAP$year))),
-              checkboxGroupInput('source_country','Production source', choices = c("Aquaculture production", "Capture production")),
+              selectInput('species_choice', 'Species classification', choices = c('Yearbook/SOFIA Selection', 'ISSCAAP Division', 'ISSCAAP Group')),
+              conditionalPanel(
+                condition = "input.species_choice == 'Yearbook/SOFIA Selection'",
+                uiOutput('yearbook_selection'),
+                # helpText("This classification allows you to filter species by three main groups. 'Fish, crustaceans and molluscs, etc.' refers to species fully destined to human consumption. 'Aquatic plants' refer to algae species. 'Other aq. animals & products' refers to marine mammals, crocodiles, corals, pearls, mother-of-pearl, shells, and sponges species not destined to human consumption.")
+              ),
+              conditionalPanel(
+                condition = "input.species_choice == 'ISSCAAP Division'",
+                uiOutput('isscaap_division'),
+                helpText("Click ", a(href="https://www.fao.org/fishery/static/ASFIS/ISSCAAP.pdf", "here", target="_blank"), " for more information about the ISSCAAP classification.")
+              ),
+              conditionalPanel(
+                condition = "input.species_choice == 'ISSCAAP Group'",
+                uiOutput('isscaap_group'),
+                helpText("Click ", a(href="https://www.fao.org/fishery/static/ASFIS/ISSCAAP.pdf", "here", target="_blank"), " for more information about the ISSCAAP classification.")
+              ),
+              selectInput('year','Year', choices = sort(unique(prod_ISSCAAP_division$year), decreasing = TRUE), selected = max(unique(prod_ISSCAAP_division$year))),
+              checkboxGroupInput('source','Production source', choices = c("Aquaculture production", "Capture production")),
               hr(),
               bookmarkButton(label = "Share this view", icon = shiny::icon("share-alt", lib = "font-awesome")),
               br(),
@@ -45,128 +59,213 @@ ui <- function(request){navbarPage("FishStat Production Data",
 }
 server <- function(input, output, session) {
   
-  observeEvent(c(input$species_country, input$year_country), ignoreInit = T,{ # Make the choices for production source conditional on the other inputs
-    freezeReactiveValue(input, "source_country")
-    updateCheckboxGroupInput(inputId = "source_country", choices = sort(unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name))
-                             , selected = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name)
-    )
+  # Initialize conditional species filters
+  
+  output$yearbook_selection <- renderUI({
+    selectInput('yearbook_selection','Species group', choices = unique(data_yearbook$species_group), selected = "Fish, crustaceans and molluscs, etc.", multiple = FALSE)
   })
   
-  # Map of country production by commodity
+  output$isscaap_division <- renderUI({
+    selectInput('isscaap_division','Species group', choices = unique(sort(data_division$species_group)), multiple = FALSE)
+  })
   
-  data_country_map <- eventReactive(input$source_country, { # eventReactive is there to make sure the code doesn't execute before the production source input has updated (it is dependent on the other inputs)
-    prod_raw_ISSCAAP %>%
-      filter(conc_isscaap_group == input$species_country,
-           year == input$year_country,
-           production_source_name %in% input$source_country) %>%
+  output$isscaap_group <- renderUI({
+    selectInput('isscaap_group','Species group', choices = unique(sort(data_group$species_group)), multiple = FALSE)
+  })
+  
+  # Make the choices for production source conditional on the other inputs
+  
+  observeEvent(list(input$species_choice, input$yearbook_selection, input$isscaap_division, input$isscaap_group, input$year), ignoreInit = T,{
+    
+    # req(input$yearbook_selection)
+    # req(input$isscaap_division)
+    # req(input$isscaap_group)
+    
+    freezeReactiveValue(input, "source")
+    updateCheckboxGroupInput(
+      inputId = "source", 
+      choices = 
+        if (input$species_choice == 'Yearbook/SOFIA Selection') {sort(unique(data_yearbook[data_yearbook$species_group == input$yearbook_selection & data_yearbook$year == input$year,]$production_source_name))}
+          else if (input$species_choice == 'ISSCAAP Division') {sort(unique(data_division[data_division$species_group == input$isscaap_division & data_division$year == input$year,]$production_source_name))}
+          else if (input$species_choice == 'ISSCAAP Group') {sort(unique(data_group[data_group$species_group == input$isscaap_group & data_group$year == input$year,]$production_source_name))},
+      selected = 
+        if (input$species_choice == 'Yearbook/SOFIA Selection') {sort(unique(data_yearbook[data_yearbook$species_group == input$yearbook_selection & data_yearbook$year == input$year,]$production_source_name))}
+          else if (input$species_choice == 'ISSCAAP Division') {sort(unique(data_division[data_division$species_group == input$isscaap_division & data_division$year == input$year,]$production_source_name))}
+          else if (input$species_choice == 'ISSCAAP Group') {sort(unique(data_group[data_group$species_group == input$isscaap_group & data_group$year == input$year,]$production_source_name))}
+)
+  })
+  
+  # Map of production by country
+  
+  data_map <- eventReactive(input$source, { # eventReactive is there to make sure the code doesn't execute before the production source input has updated (it is dependent on the other inputs)
+    
+    switch(input$species_choice,
+           'Yearbook/SOFIA Selection' = data_yearbook, 
+           'ISSCAAP Division' = data_division, 
+           'ISSCAAP Group' = data_group) %>%
+      filter(year == input$year) %>%
+      filter(production_source_name %in% input$source) %>%
+      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
+        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
+        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
       rename(z = value) %>%
-      group_by(conc_isscaap_group, iso2_code, country, year, unit, lat, lon) %>%
+      group_by(country, species_group, unit, year, lat, lon) %>%
       summarise(z = sum(z)) %>%
       group_by() %>%
       mutate(total = sum(z)) %>%
       ungroup() %>%
       mutate(value_formatted = addUnits(z)) %>%
       mutate(share = sprintf("%0.1f%%", z/total*100))
+    
     }
   )
   
-  data_total <- eventReactive(input$source_country, {
-    prod_raw_ISSCAAP %>%
-      filter(conc_isscaap_group == input$species_country,
-             year == input$year_country,
-             production_source_name %in% input$source_country) %>%
+  data_total <- eventReactive(input$source, {
+    
+    switch(input$species_choice,
+           'Yearbook/SOFIA Selection' = data_yearbook, 
+           'ISSCAAP Division' = data_division, 
+           'ISSCAAP Group' = data_group) %>%
+      filter(year == input$year) %>%
+      filter(production_source_name %in% input$source) %>%
+      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
+        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
+        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
       summarise(value = sum(value)) %>%
       pull() %>%
-      addUnits()}
-  )
-  
-  data_capture_share <- eventReactive(input$source_country, {
-      if (length(input$source_country) > 1) {
-        prod_raw_ISSCAAP %>%
-          filter(conc_isscaap_group == input$species_country,
-                 year == input$year_country,
-                 production_source_name %in% input$source_country) %>%
-          group_by(production_source_name) %>%
-          summarise(value = sum(value)) %>%
-          mutate(share = round(value/sum(value)*100, 0)) %>% 
-          filter(production_source_name == "Capture production") %>%
-          pull(share)
-      }
+      addUnits()
+    
     }
   )
   
-  data_aquaculture_share <- eventReactive(input$source_country, {
-    if (length(input$source_country) > 1) {
-      prod_raw_ISSCAAP %>%
-        filter(conc_isscaap_group == input$species_country,
-               year == input$year_country,
-               production_source_name %in% input$source_country) %>%
+  data_capture_share <- eventReactive(input$source, {
+    
+    switch(input$species_choice,
+           'Yearbook/SOFIA Selection' = data_yearbook, 
+           'ISSCAAP Division' = data_division, 
+           'ISSCAAP Group' = data_group) %>%
+      filter(year == input$year) %>%
+      filter(production_source_name %in% input$source) %>%
+      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
+        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
+        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
+      group_by(production_source_name) %>%
+      summarise(value = sum(value)) %>%
+      mutate(share = round(value/sum(value)*100, 0)) %>% 
+      filter(production_source_name == "Capture production") %>%
+      pull(share)
+
+    }
+  )
+  
+  data_aquaculture_share <- eventReactive(input$source, {
+    
+    if (length(input$source) > 1) {
+    
+      switch(input$species_choice,
+             'Yearbook/SOFIA Selection' = data_yearbook, 
+             'ISSCAAP Division' = data_division, 
+             'ISSCAAP Group' = data_group) %>%
+        filter(year == input$year) %>%
+        filter(production_source_name %in% input$source) %>%
+        {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
+          else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
+          else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
         group_by(production_source_name) %>%
         summarise(value = sum(value)) %>%
         mutate(share = round(value/sum(value)*100, 0)) %>% 
         filter(production_source_name == "Aquaculture production") %>%
         pull(share)
+      }
     }
-  }
   )
   
-  data_n <- eventReactive(input$source_country, {
-    prod_raw_ISSCAAP %>%
-      filter(conc_isscaap_group == input$species_country,
-             year == input$year_country,
-             production_source_name %in% input$source_country) %>%
-      group_by(conc_isscaap_group, iso2_code, country, year) %>%
+  data_n <- eventReactive(input$source, {
+    
+    switch(input$species_choice,
+           'Yearbook/SOFIA Selection' = data_yearbook, 
+           'ISSCAAP Division' = data_division, 
+           'ISSCAAP Group' = data_group) %>%
+      filter(year == input$year) %>%
+      filter(production_source_name %in% input$source) %>%
+      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
+        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
+        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
+      group_by(country, species_group, year) %>%
       summarize(value = sum(value)) %>%
       ungroup() %>%
       summarise(n = n()) %>%
-      pull()}
+      pull()
+    
+    }
   )
   
-  data_unit <- eventReactive(input$source_country, {
-    prod_raw_ISSCAAP %>%
-      filter(conc_isscaap_group == input$species_country,
-             year == input$year_country,
-             production_source_name %in% input$source_country) %>%
+  data_unit <- eventReactive(input$source, {
+    
+    switch(input$species_choice,
+           'Yearbook/SOFIA Selection' = data_yearbook, 
+           'ISSCAAP Division' = data_division, 
+           'ISSCAAP Group' = data_group) %>%
+      filter(year == input$year) %>%
+      filter(production_source_name %in% input$source) %>%
+      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
+        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
+        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
       summarise(unit = first(unit)) %>%
-      pull()}
+      pull()
+
+    }
   )
   
   output$countrymap <- renderHighchart(
-    highchart(type = "map") %>%
-      hc_add_series(mapData = map, showInLegend = F) %>%
-      hc_add_series(data = data_country_map(), 
-                    showInLegend = F,
-                    type = "mapbubble", 
-                    name = "Producing country",
-                    color = ifelse(all(input$source_country == "Capture production"),  '#377eb8', 
-                                   ifelse(all(input$source_country == "Aquaculture production"), '#4daf4a', 
-                                          ifelse(length(input$source_country) > 1, '#984ea3', '#984ea3'))),
-                    tooltip = list(pointFormat = "Country: {point.country}<br>ISSCAAP group: {point.conc_isscaap_group}<br>Year: {point.year}<br>Production: {point.value_formatted}<br> Unit: {point.unit}<br>Share of world production: {point.share}")) %>%
-      hc_title(text = paste0(ifelse(length(input$source_country) > 1, "Capture and aquaculture production", input$source_country), " of ", tolower(prod_raw_ISSCAAP[prod_raw_ISSCAAP$conc_isscaap_group == input$species_country,]$isscaap_group_en[[1]]), ", ", input$year_country)) %>%
-      hc_subtitle(text = paste0('Total ', ifelse(length(input$source_country) > 1, "production", tolower(input$source_country)), " (", tolower(data_unit()) ,"): ", data_total(), ifelse(length(input$source_country) > 1, paste0(" (", data_capture_share(), "% capture, ", data_aquaculture_share(), "% aquaculture)"), ""), ", number of producing countries: ", data_n())) %>%
-      hc_mapNavigation(enabled = T) %>%
-      hc_legend(enabled = TRUE, 
-                layout = "horizontal", 
-                align = "right",
-                verticalAlign = "bottom") %>%
-      # hc_caption(text = "<center>Note: the data presented only includes aquatic animals.</center>") %>%
-      hc_exporting(enabled = TRUE, 
-                   buttons = list(
-                     contextButton = list(
-                       menuItems = hc_export_options
-                       )
-                     )
-                   )
+    
+    # withProgress(message = 'Loading. Please wait.', value = 0, {
+    
+      highchart(type = "map") %>%
+        hc_add_series(mapData = map, showInLegend = F) %>%
+        hc_add_series(data = data_map(), 
+                      showInLegend = F,
+                      type = "mapbubble", 
+                      name = "Producing country",
+                      color = ifelse(all(input$source == "Capture production"),  '#377eb8', 
+                                     ifelse(all(input$source == "Aquaculture production"), '#4daf4a', 
+                                            ifelse(length(input$source) > 1, '#984ea3', '#984ea3'))),
+                      tooltip = list(pointFormat = "Country: {point.country}<br>Species group: {point.species_group}<br>Year: {point.year}<br>Production: {point.value_formatted}<br> Unit: {point.unit}<br>Share of world production: {point.share}")) %>%
+        hc_title(text = 
+                   if (input$species_choice == 'Yearbook/SOFIA Selection') {paste0(ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_yearbook[data_yearbook$species_group == input$yearbook_selection,]$species_group[[1]]), ", ", input$year)} 
+                 else if (input$species_choice == 'ISSCAAP Division') {paste0(ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_division[data_division$species_group == input$isscaap_division,]$isscaap_division_en[[1]]), ", ", input$year)} 
+                 else if (input$species_choice == 'ISSCAAP Group') {paste0(ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_group[data_group$species_group == input$isscaap_group,]$isscaap_group_en[[1]]), ", ", input$year)}
+                 ) %>%
+        hc_subtitle(text = paste0('Total ', ifelse(length(input$source) > 1, "production", tolower(input$source)), " (", tolower(data_unit()) ,"): ", data_total(), ifelse(length(input$source) > 1, paste0(" (", data_capture_share(), "% capture, ", data_aquaculture_share(), "% aquaculture)"), ""), ", number of producing countries: ", data_n())) %>%
+        hc_mapNavigation(enabled = T) %>%
+        hc_legend(enabled = TRUE, 
+                  layout = "horizontal", 
+                  align = "right",
+                  verticalAlign = "bottom") %>%
+        hc_exporting(enabled = TRUE, 
+                     buttons = list(
+                       contextButton = list(
+                         menuItems = hc_export_options
+            )
+          )
+        )
+      # })
     )
   
   # Bar chart of production share by country
   
-  data_chart <- eventReactive(input$source_country, {
-    prod_raw_ISSCAAP %>%
-      filter(conc_isscaap_group == input$species_country,
-             year == input$year_country,
-             production_source_name %in% input$source_country) %>%
-      group_by(conc_isscaap_group, iso2_code, country, year) %>%
+  data_chart <- eventReactive(input$source, {
+    
+    switch(input$species_choice,
+           'Yearbook/SOFIA Selection' = data_yearbook, 
+           'ISSCAAP Division' = data_division, 
+           'ISSCAAP Group' = data_group) %>%
+      filter(year == input$year) %>%
+      filter(production_source_name %in% input$source) %>%
+      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
+        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
+        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
+      group_by(species_group, country, year) %>%
       summarise(value = sum(value)) %>%
       group_by() %>%
       mutate(total = sum(value)) %>%
@@ -174,11 +273,12 @@ server <- function(input, output, session) {
       mutate(share = value/total*100) %>%
       mutate(country = ifelse(share < 1, "Others", country)) %>%
       mutate(bottom = ifelse(country == "Others", 1, 0)) %>%
-      group_by(country, conc_isscaap_group, year, bottom) %>%
+      group_by(country, species_group, year, bottom) %>%
       summarize(value = sum(value), share = sum(share)) %>%
       ungroup() %>%
       arrange(bottom, desc(share)) %>%
       mutate(value_formatted = addUnits(value), share_pretty = sprintf("%0.1f%%", share))
+    
     }
   )
   
@@ -187,15 +287,19 @@ server <- function(input, output, session) {
            type = "column", 
            hcaes(x = country, y = share), 
            name = "Share of production",
-           color = ifelse(all(input$source_country == "Capture production"),  '#377eb8', 
-                          ifelse(all(input$source_country == "Aquaculture production"), '#4daf4a', 
-                                 ifelse(length(input$source_country) > 1, '#984ea3', '#984ea3'))),
-           tooltip = list(pointFormat = "Country: {point.country}<br>ISSCAAP group: {point.conc_isscaap_group}<br>Year: {point.year}<br>Production (tonnes): {point.value_formatted}<br>Share: {point.share_pretty}")) %>%
+           color = ifelse(all(input$source == "Capture production"),  '#377eb8', 
+                          ifelse(all(input$source == "Aquaculture production"), '#4daf4a', 
+                                 ifelse(length(input$source) > 1, '#984ea3', '#984ea3'))),
+           tooltip = list(pointFormat = "Country: {point.country}<br>Species group: {point.species_group}<br>Year: {point.year}<br>Production (tonnes): {point.value_formatted}<br>Share: {point.share_pretty}")) %>%
       hc_xAxis(title = list(text = "Country")) %>%
       hc_yAxis(title = list(text = "Share"),
                labels = list(format = "{value}%")) %>%
-      hc_title(text = paste0("Share of world ", ifelse(length(input$source_country) > 1, "capture and aquaculture production", tolower(input$source_country)), ", ", tolower(prod_raw_ISSCAAP[prod_raw_ISSCAAP$conc_isscaap_group == input$species_country,]$isscaap_group_en[[1]]), ", ", input$year_country)) %>%
-      hc_subtitle(text = paste0('Total ', ifelse(length(input$source_country) > 1, "capture and aquaculture production", tolower(input$source_country)), " (", tolower(data_unit()) ,"): ", data_total(), ", number of producing countries: ", data_n())) %>%
+      hc_title(text = 
+                 if (input$species_choice == 'Yearbook/SOFIA Selection') {paste0(ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_yearbook[data_yearbook$species_group == input$yearbook_selection,]$species_group[[1]]), ", ", input$year)} 
+               else if (input$species_choice == 'ISSCAAP Division') {paste0(ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_division[data_division$species_group == input$isscaap_division,]$isscaap_division_en[[1]]), ", ", input$year)} 
+               else if (input$species_choice == 'ISSCAAP Group') {paste0(ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_group[data_group$species_group == input$isscaap_group,]$isscaap_group_en[[1]]), ", ", input$year)}
+      ) %>%
+      hc_subtitle(text = paste0('Total ', ifelse(length(input$source) > 1, "capture and aquaculture production", tolower(input$source)), " (", tolower(data_unit()) ,"): ", data_total(), ", number of producing countries: ", data_n())) %>%
       hc_caption(text = "Note: the 'Others' category groups all countries with a share of world production lower than 1%.") %>%
       hc_exporting(enabled = TRUE, 
                    buttons = list(
@@ -208,12 +312,18 @@ server <- function(input, output, session) {
   
   # Table of country production by commodity
   
-  data_table <- eventReactive(input$source_country, {
-    prod_raw_ISSCAAP %>%
-      filter(conc_isscaap_group == input$species_country,
-             year == input$year_country,
-             production_source_name %in% input$source_country) %>%
-      group_by(country, conc_isscaap_group, year, unit) %>%
+  data_table <- eventReactive(input$source, {
+    
+    switch(input$species_choice,
+           'Yearbook/SOFIA Selection' = data_yearbook, 
+           'ISSCAAP Division' = data_division, 
+           'ISSCAAP Group' = data_group) %>%
+      filter(year == input$year) %>%
+      filter(production_source_name %in% input$source) %>%
+      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
+        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
+        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
+      group_by(country, species_group, year, unit) %>%
       summarize(value = sum(value)) %>%
       ungroup() %>%
       arrange(desc(value)) %>%
@@ -221,7 +331,8 @@ server <- function(input, output, session) {
       mutate(total = sum(value)) %>%
       ungroup() %>%
       mutate(share = value/total*100) %>%
-      select(country, conc_isscaap_group, year, value, unit, share)
+      select(country, species_group, year, value, unit, share)
+    
     }
   )
   
@@ -240,33 +351,28 @@ server <- function(input, output, session) {
                 lengthMenu = c(10,50,100)
               ),
               class = "display",
-              caption = paste0(ifelse(length(input$source_country) > 1, "Capture and aquaculture production", input$source_country), " of ", tolower(prod_raw_ISSCAAP[prod_raw_ISSCAAP$conc_isscaap_group == input$species_country,]$isscaap_group_en[[1]]), ", ", input$year_country), 
+              caption = 
+                if (input$species_choice == 'Yearbook/SOFIA Selection') {paste0(ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_yearbook[data_yearbook$species_group == input$yearbook_selection,]$species_group[[1]]), ", ", input$year)} 
+              else if (input$species_choice == 'ISSCAAP Division') {paste0(ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_division[data_division$species_group == input$isscaap_division,]$isscaap_division_en[[1]]), ", ", input$year)} 
+              else if (input$species_choice == 'ISSCAAP Group') {paste0(ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_group[data_group$species_group == input$isscaap_group,]$isscaap_group_en[[1]]), ", ", input$year)}, 
               colnames = c("Country", "ISSCAAP group", "Year", "Value", "Unit", "Share (%)")) %>%
       formatRound(c("share"), 1) %>%
       formatCurrency("value", currency = "", interval = 3, mark = " ", digits = 0)
   })
  
-  # Save app state to URL
-  
-  # observe({
-  #   reactiveValuesToList(input)
-  #   session$doBookmark()
-  # })
-  # onBookmarked(updateQueryString)
-  
   # Save extra values in state$values when we bookmark
   onBookmark(function(state) {
-    state$values$prodsource <- input$source_country
+    state$values$prodsource <- input$source
   })
   
   # Read values from state$values when we restore
   onRestored(function(state) {
     
-    updateCheckboxGroupInput(inputId = "source_country", choices = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$conc_isscaap_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year_country),]$production_source_name),
+    updateCheckboxGroupInput(inputId = "source", choices = unique(prod_raw_ISSCAAP[(prod_raw_ISSCAAP$species_group == input$species_country) & (prod_raw_ISSCAAP$year == input$year),]$production_source_name),
                              selected = state$values$prodsource
     )
     
-    # input$source_country <- state$values$prodsource
+    # input$source <- state$values$prodsource
   })
   
 }
