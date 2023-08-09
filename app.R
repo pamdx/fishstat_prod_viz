@@ -13,7 +13,7 @@ library(shinyfullscreen)
 source("helpers.R")
 
 ui <- function(request){navbarPage("FishStat Production Data",
-        tabPanel("Data explorer",
+        tabPanel("Data Explorer",
           sidebarLayout(
             sidebarPanel(
               selectInput('species_choice', 'Species classification', choices = c('Yearbook/SOFIA Selection', 'ISSCAAP Division', 'ISSCAAP Group')),
@@ -32,13 +32,16 @@ ui <- function(request){navbarPage("FishStat Production Data",
                 uiOutput('isscaap_group'),
                 helpText("Click ", a(href="https://www.fao.org/fishery/static/ASFIS/ISSCAAP.pdf", "here", target="_blank"), " for more information about the ISSCAAP classification.")
               ),
-              selectInput('year','Year', choices = sort(unique(prod_ISSCAAP_division$year), decreasing = TRUE), selected = max(unique(prod_ISSCAAP_division$year))),
+              selectInput('year','Year', choices = sort(unique(data_yearbook$year), decreasing = TRUE), selected = max(unique(data_yearbook$year))),
               checkboxGroupInput('source','Production source', choices = c("Aquaculture production", "Capture production")),
               hr(),
+              fullscreen_button("full_screen", label = "Fullscreen On/Off", icon = shiny::icon("expand", lib = "font-awesome"), target = NULL),
+              br(),
+              br(),
               bookmarkButton(label = "Share this view", icon = shiny::icon("share-alt", lib = "font-awesome")),
               br(),
               br(),
-              img(src="https://www.fao.org/images/corporatelibraries/fao-logo/fao-logo-en.svg?sfvrsn=f64522b4_33", width = "100%"),
+              img(src="fao-logo-en.svg", width = "100%"),
               width = 2
             ),
             mainPanel(
@@ -50,11 +53,29 @@ ui <- function(request){navbarPage("FishStat Production Data",
             )
           )
         ),
-       fixedPanel(
-         fullscreen_button("full_screen", label = "", icon = shiny::icon("expand", lib = "font-awesome"), target = NULL),
-         right = 326,
-         top = 79
-       )
+        tabPanel("Readme",
+                 fluidPage(
+                   mainPanel(
+                     h1("How to use this tool"),
+                     p("This website features interactive visualizations to explore FAO's", a(href="https://www.fao.org/fishery/en/collection/global_production?lang=en", "Global Production", target="_blank"), "dataset."),
+                     p("We hope you enjoy this application Click ", a(href="https://www.fao.org/fishery/en/fishstat", "here", target="_blank"), "if you want to learn more about FAO's Fisheries and Aquaculture statistics."),
+                     h2("The Data Explorer"),
+                     p("Under", em("Data Explorer,"), "you can visualize the world's fisheries and aquaculture production by the species group and for the year of your choice."),
+                     h3("Side panel"),
+                     p("The", em("side panel"), "located on the left of the user interface allows you to select the species group to visualize on the right side of the interface. Please note that three species classifications are available. The user can also use the filter in this panel to select the year of the data and the production source (aquaculture and/or capture). Finally, the two buttons on the bottom of the side panels allow the user to display the application in fullscreen and to share the current view with somebody else."), 
+                     tags$img(src = "side_panel.png"),
+                     h3("Map"),
+                     p("The data is first represented on a map under the", em("Map"), "tab. Each bubble represent a country's capture and/or aquaculture production for the species group and year selected in the side panel. Placing your mouse cursor on individual bubbles will give you more information on a given country's production. You can zoom in or out of the map using the + and - buttons on the top left of the map. This is particularly useful to better explore data in areas of the world with a high density of countries. Finally, you can export the map as an image by clicking on the three lines on the top right of the map."), 
+                     tags$img(src = "map_illustration.png"),
+                     h3("Chart"),
+                     p("If you want to focus on the main producers for the species group you selected, you can display them as a bar chart ordered by their shares of world production under the", em("Chart"), "tab. Placing your mouse cursor on individual bars will give you more information on a given country's production. You can export the map as an image by clicking on the three lines on the top right of the map."), 
+                     tags$img(src = "chart_illustration.png"),
+                     h3("Table"),
+                     p("Finally, you can display a table listing the producers of the species group of your choice in the", em("Table"), "tab. The data can be exported by clicking on one of the buttons on the top left of the table."),
+                     tags$img(src = "table_illustration.png")
+                   )
+                 )
+        )
       )
 }
 server <- function(input, output, session) {
@@ -77,9 +98,9 @@ server <- function(input, output, session) {
   
   observeEvent(list(input$species_choice, input$yearbook_selection, input$isscaap_division, input$isscaap_group, input$year), ignoreInit = T,{
     
-    # req(input$yearbook_selection)
-    # req(input$isscaap_division)
-    # req(input$isscaap_group)
+    if (input$species_choice == 'Yearbook/SOFIA Selection') {req(input$yearbook_selection)}
+    else if (input$species_choice == 'ISSCAAP Division') {req(input$isscaap_division)}
+    else if (input$species_choice == 'ISSCAAP Group') {req(input$isscaap_group)}
     
     freezeReactiveValue(input, "source")
     updateCheckboxGroupInput(
@@ -92,7 +113,7 @@ server <- function(input, output, session) {
         if (input$species_choice == 'Yearbook/SOFIA Selection') {sort(unique(data_yearbook[data_yearbook$species_group == input$yearbook_selection & data_yearbook$year == input$year,]$production_source_name))}
           else if (input$species_choice == 'ISSCAAP Division') {sort(unique(data_division[data_division$species_group == input$isscaap_division & data_division$year == input$year,]$production_source_name))}
           else if (input$species_choice == 'ISSCAAP Group') {sort(unique(data_group[data_group$species_group == input$isscaap_group & data_group$year == input$year,]$production_source_name))}
-)
+      )
   })
   
   # Map of production by country
@@ -347,7 +368,7 @@ server <- function(input, output, session) {
                 ordering = TRUE,
                 dom = 'Bfrtip',
                 buttons = c('copy', 'csv', 'excel', 'pdf'),
-                pageLength = 10, 
+                pageLength = 15, 
                 lengthMenu = c(10,50,100)
               ),
               class = "display",
