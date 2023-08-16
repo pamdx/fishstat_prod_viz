@@ -6,6 +6,7 @@ library(tibble)
 library(readr)
 library(DT)
 library(shinyfullscreen)
+library(shinycssloaders)
 
 # library(rsconnect)
 # deployApp()
@@ -46,9 +47,18 @@ ui <- function(request){navbarPage("FishStat Production Data",
             ),
             mainPanel(
               tabsetPanel(
-                tabPanel("Map", highchartOutput("countrymap", height = "700px")),
-                tabPanel("Chart", highchartOutput("chart", height = "700px")),
-                tabPanel("Table", DT::dataTableOutput("data_table", height = "700px")),
+                tabPanel(
+                  "Map", 
+                  highchartOutput("countrymap", height = "700px") %>% withSpinner()
+                  ),
+                tabPanel(
+                  "Chart", 
+                  highchartOutput("chart", height = "700px") %>% withSpinner()
+                  ),
+                tabPanel(
+                  "Table", 
+                  DT::dataTableOutput("data_table", height = "700px") %>% withSpinner()
+                  ),
               )
             )
           )
@@ -58,20 +68,21 @@ ui <- function(request){navbarPage("FishStat Production Data",
                    mainPanel(
                      h1("How to use this tool"),
                      p("This website features interactive visualizations to explore FAO's", a(href="https://www.fao.org/fishery/en/collection/global_production?lang=en", "Global Production", target="_blank"), "dataset."),
-                     p("We hope you enjoy this application Click ", a(href="https://www.fao.org/fishery/en/fishstat", "here", target="_blank"), "if you want to learn more about FAO's Fisheries and Aquaculture statistics."),
+                     p("We hope you enjoy this application. Click ", a(href="https://www.fao.org/fishery/en/fishstat", "here", target="_blank"), "to learn more about FAO's Fisheries and Aquaculture statistics."),
+                     p("We encourage users to provide their feedback or ask their questions about this tool at", a(href="mailto:Fish-Statistics-Inquiries@fao.org", "Fish-Statistics-Inquiries@fao.org", target="_blank")),
                      h2("The Data Explorer"),
                      p("Under", em("Data Explorer,"), "you can visualize the world's fisheries and aquaculture production by the species group and for the year of your choice."),
                      h3("Side panel"),
-                     p("The", em("side panel"), "located on the left of the user interface allows you to select the species group to visualize on the right side of the interface. Please note that three species classifications are available. The user can also use the filter in this panel to select the year of the data and the production source (aquaculture and/or capture). Finally, the two buttons on the bottom of the side panels allow the user to display the application in fullscreen and to share the current view with somebody else."), 
+                     p("The", em("side panel"), "located on the left of the user interface allows you to select the species group to visualize on the right side of the interface (three species classifications are available). The user can also use the filter in this panel to select the year of the data and the production source (aquaculture and/or capture). Finally, the two buttons on the bottom of the side panels allow the user to display the application in fullscreen and to share the current view with somebody else."), 
                      tags$img(src = "side_panel.png"),
                      h3("Map"),
-                     p("The data is first represented on a map under the", em("Map"), "tab. Each bubble represent a country's capture and/or aquaculture production for the species group and year selected in the side panel. Placing your mouse cursor on individual bubbles will give you more information on a given country's production. You can zoom in or out of the map using the + and - buttons on the top left of the map. This is particularly useful to better explore data in areas of the world with a high density of countries. Finally, you can export the map as an image by clicking on the three lines on the top right of the map."), 
+                     p("The data is first represented on a map under the", em("Map"), "tab. Each bubble represents a country's capture and/or aquaculture production for the species group and year selected in the side panel. Placing your cursor on individual bubbles will give you more information on a given country's production. You can zoom in or out of the map using the + and - buttons on the top left of the map. This is particularly useful to better explore data in areas of the world with a high density of countries. Finally, you can export the map as an image by clicking on the three lines on the top right of the map."), 
                      tags$img(src = "map_illustration.png"),
                      h3("Chart"),
-                     p("If you want to focus on the main producers for the species group you selected, you can display them as a bar chart ordered by their shares of world production under the", em("Chart"), "tab. Placing your mouse cursor on individual bars will give you more information on a given country's production. You can export the map as an image by clicking on the three lines on the top right of the map."), 
+                     p("If you want to focus on the main producers for the species group you selected, you can display them as a bar chart ordered by their shares of world production under the", em("Chart"), "tab. Placing your cursor on individual bars will give you more information on a given country's production. You can export the visual as an image by clicking on the three lines on the top right of the chart."), 
                      tags$img(src = "chart_illustration.png"),
                      h3("Table"),
-                     p("Finally, you can display a table listing the producers of the species group of your choice in the", em("Table"), "tab. The data can be exported by clicking on one of the buttons on the top left of the table."),
+                     p("Finally, you can display a table listing the producers of the species group of your choice in the", em("Table"), "tab. The data can be exported by clicking on any of the buttons on the top left of the table."),
                      tags$img(src = "table_illustration.png")
                    )
                  )
@@ -83,7 +94,7 @@ server <- function(input, output, session) {
   # Initialize conditional species filters
   
   output$yearbook_selection <- renderUI({
-    selectInput('yearbook_selection','Species group', choices = unique(data_yearbook$species_group), selected = "Fish, crustaceans and molluscs, etc.", multiple = FALSE)
+    selectInput('yearbook_selection','Species group', choices = unique(data_yearbook$species_group), selected = "Aquatic animals", multiple = FALSE)
   })
   
   output$isscaap_division <- renderUI({

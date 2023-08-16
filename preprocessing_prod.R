@@ -102,6 +102,12 @@ prod_yearbook_selection <- prod_raw %>%
   group_by(country, yearbook_group_en, production_source_name, unit, year, lat, lon) %>%
   summarise(value = sum(value)) %>%
   ungroup() %>%
+  mutate(yearbook_group_en = case_when(
+    yearbook_group_en == "Fish, crustaceans and molluscs, etc." ~ "Aquatic animals",
+    yearbook_group_en == "Other aq. animals & products" ~ "Other aq. animals & products",
+    yearbook_group_en == "Aquatic plants" ~ "Algae",
+    .default = yearbook_group_en
+  )) %>%
   rename(species_group = yearbook_group_en)
 
 saveRDS(prod_yearbook_selection, "prod_yearbook_selection.RDS")
