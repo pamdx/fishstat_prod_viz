@@ -13,8 +13,9 @@ library(shinycssloaders)
 
 source("helpers.R")
 
-ui <- function(request){navbarPage("FishStat Production Data",
-        tabPanel("Data Explorer",
+ui <- function(request){
+        navbarPage(title = div(img(src = "fao-logo-blue-3lines-en.svg", id = "logo", height = "35px", style = "border-right: 1px solid grey; padding: 0 0.5rem; position: relative; margin:-15px 0px; display:right-align; "), "FishStat Production Data"),
+         tabPanel("Data Explorer",
           sidebarLayout(
             sidebarPanel(
               selectInput('species_choice', 'Species classification', choices = c('Yearbook/SOFIA Selection', 'ISSCAAP Division', 'ISSCAAP Group')),
@@ -40,9 +41,6 @@ ui <- function(request){navbarPage("FishStat Production Data",
               br(),
               br(),
               bookmarkButton(label = "Share this view", icon = shiny::icon("share-alt", lib = "font-awesome")),
-              br(),
-              br(),
-              img(src="fao-logo-en.svg", width = "100%"),
               width = 2
             ),
             mainPanel(
@@ -61,7 +59,14 @@ ui <- function(request){navbarPage("FishStat Production Data",
                   ),
               )
             )
-          )
+          ),
+          
+          hr(),
+          div(
+            class = "footer",
+            includeHTML("footer.html")
+          ),
+          
         ),
         tabPanel("Readme",
                  fluidPage(
@@ -278,8 +283,19 @@ server <- function(input, output, session) {
                      buttons = list(
                        contextButton = list(
                          menuItems = hc_export_options
-            )
-          )
+                         )
+                       ),
+                     chartOptions = list(
+                       chart = list(
+                         backgroundColor = "#FFFFFF"
+                       )
+                     ),
+                     sourceWidth = 1920,
+                     sourceHeight = 1080,
+                     filename = 
+                       if (input$species_choice == 'Yearbook/SOFIA Selection') {paste0("(Map) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_yearbook[data_yearbook$species_group == input$yearbook_selection,]$species_group[[1]]), ", ", input$year)} 
+                     else if (input$species_choice == 'ISSCAAP Division') {paste0("(Map) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_division[data_division$species_group == input$isscaap_division,]$isscaap_division_en[[1]]), ", ", input$year)} 
+                     else if (input$species_choice == 'ISSCAAP Group') {paste0("(Map) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_group[data_group$species_group == input$isscaap_group,]$isscaap_group_en[[1]]), ", ", input$year)}
         )
       # })
     )
@@ -323,22 +339,34 @@ server <- function(input, output, session) {
                           ifelse(all(input$source == "Aquaculture production"), '#4daf4a', 
                                  ifelse(length(input$source) > 1, '#984ea3', '#984ea3'))),
            tooltip = list(pointFormat = "Country: {point.country}<br>Species group: {point.species_group}<br>Year: {point.year}<br>Production (tonnes): {point.value_formatted}<br>Share: {point.share_pretty}")) %>%
-      hc_xAxis(title = list(text = "Country")) %>%
-      hc_yAxis(title = list(text = "Share"),
-               labels = list(format = "{value}%")) %>%
+      hc_xAxis(title = list(text = NULL)) %>%
+      hc_yAxis(title = list(text = "Share of world production"),
+               labels = list(format = "{value}%"),
+               ceiling = 100) %>%
       hc_title(text = 
                  if (input$species_choice == 'Yearbook/SOFIA Selection') {paste0(ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_yearbook[data_yearbook$species_group == input$yearbook_selection,]$species_group[[1]]), ", ", input$year)} 
                else if (input$species_choice == 'ISSCAAP Division') {paste0(ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_division[data_division$species_group == input$isscaap_division,]$isscaap_division_en[[1]]), ", ", input$year)} 
                else if (input$species_choice == 'ISSCAAP Group') {paste0(ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_group[data_group$species_group == input$isscaap_group,]$isscaap_group_en[[1]]), ", ", input$year)}
       ) %>%
-      hc_subtitle(text = paste0('Total ', ifelse(length(input$source) > 1, "capture and aquaculture production", tolower(input$source)), " (", tolower(data_unit()) ,"): ", data_total(), ", number of producing countries: ", data_n())) %>%
+      hc_subtitle(text = paste0('Total ', ifelse(length(input$source) > 1, "production", tolower(input$source)), " (", tolower(data_unit()) ,"): ", data_total(), ifelse(length(input$source) > 1, paste0(" (", data_capture_share(), "% capture, ", data_aquaculture_share(), "% aquaculture)"), ""), ", number of producing countries: ", data_n())) %>%
       hc_caption(text = "Note: the 'Others' category groups all countries with a share of world production lower than 1%.") %>%
       hc_exporting(enabled = TRUE, 
                    buttons = list(
                      contextButton = list(
                        menuItems = hc_export_options
                      )
-                   )
+                   ),
+                   chartOptions = list(
+                     chart = list(
+                       backgroundColor = "#FFFFFF"
+                     )
+                   ),
+                   # sourceWidth = 1920,
+                   # sourceHeight = 1080,
+                   filename = 
+                     if (input$species_choice == 'Yearbook/SOFIA Selection') {paste0("(Chart) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_yearbook[data_yearbook$species_group == input$yearbook_selection,]$species_group[[1]]), ", ", input$year)} 
+                   else if (input$species_choice == 'ISSCAAP Division') {paste0("(Chart) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_division[data_division$species_group == input$isscaap_division,]$isscaap_division_en[[1]]), ", ", input$year)} 
+                   else if (input$species_choice == 'ISSCAAP Group') {paste0("(Chart) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_group[data_group$species_group == input$isscaap_group,]$isscaap_group_en[[1]]), ", ", input$year)}
       )
   })
   
@@ -378,7 +406,26 @@ server <- function(input, output, session) {
                 autoWidth = FALSE,
                 ordering = TRUE,
                 dom = 'Bfrtip',
-                buttons = c('copy', 'csv', 'excel', 'pdf'),
+                buttons = list('copy', list(
+                  extend = 'collection',
+                  buttons = list(
+                    list(extend = 'csv', 
+                         filename =
+                           if (input$species_choice == 'Yearbook/SOFIA Selection') {paste0("(Table) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_yearbook[data_yearbook$species_group == input$yearbook_selection,]$species_group[[1]]), ", ", input$year)} 
+                         else if (input$species_choice == 'ISSCAAP Division') {paste0("(Table) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_division[data_division$species_group == input$isscaap_division,]$isscaap_division_en[[1]]), ", ", input$year)} 
+                         else if (input$species_choice == 'ISSCAAP Group') {paste0("(Table) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_group[data_group$species_group == input$isscaap_group,]$isscaap_group_en[[1]]), ", ", input$year)}),
+                    list(extend = 'excel', 
+                         filename =
+                           if (input$species_choice == 'Yearbook/SOFIA Selection') {paste0("(Table) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_yearbook[data_yearbook$species_group == input$yearbook_selection,]$species_group[[1]]), ", ", input$year)} 
+                         else if (input$species_choice == 'ISSCAAP Division') {paste0("(Table) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_division[data_division$species_group == input$isscaap_division,]$isscaap_division_en[[1]]), ", ", input$year)} 
+                         else if (input$species_choice == 'ISSCAAP Group') {paste0("(Table) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_group[data_group$species_group == input$isscaap_group,]$isscaap_group_en[[1]]), ", ", input$year)}),
+                    list(extend = 'pdf', 
+                         filename =
+                           if (input$species_choice == 'Yearbook/SOFIA Selection') {paste0("(Table) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_yearbook[data_yearbook$species_group == input$yearbook_selection,]$species_group[[1]]), ", ", input$year)} 
+                         else if (input$species_choice == 'ISSCAAP Division') {paste0("(Table) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_division[data_division$species_group == input$isscaap_division,]$isscaap_division_en[[1]]), ", ", input$year)} 
+                         else if (input$species_choice == 'ISSCAAP Group') {paste0("(Table) ", ifelse(length(input$source) > 1, "Capture and aquaculture production", input$source), " of ", tolower(data_group[data_group$species_group == input$isscaap_group,]$isscaap_group_en[[1]]), ", ", input$year)})),
+                  text = 'Download'
+                )),
                 pageLength = 15, 
                 lengthMenu = c(10,50,100)
               ),

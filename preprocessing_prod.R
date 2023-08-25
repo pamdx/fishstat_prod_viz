@@ -136,6 +136,6 @@ saveRDS(prod_ISSCAAP_group, "prod_ISSCAAP_group.RDS")
 
 # Download map for HC viz
 
-map <- download_map_data(url = "custom/world-continents.js", showinfo = FALSE, quiet = FALSE)
-
-saveRDS(map, "map.RDS")
+# map <- download_map_data(url = "custom/world-continents.js", showinfo = FALSE, quiet = FALSE)
+# 
+# saveRDS(map, "map.RDS")
