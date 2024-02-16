@@ -95,6 +95,16 @@ isscaap_classif <- read_csv("https://raw.githubusercontent.com/openfigis/RefData
   rename(isscaap_division_en = Name_En) %>%
   mutate(conc_isscaap_division = paste(isscaap_division_code, "-", isscaap_division_en))
 
+# All classifications
+
+prod_all <- prod_raw %>%
+  left_join(isscaap_classif) %>%
+  group_by(country, yearbook_group_en, conc_isscaap_division, conc_isscaap_group, production_source_name, unit, year, lat, lon) %>%
+  summarise(value = sum(value)) %>%
+  ungroup()
+
+saveRDS(prod_all, "prod_all.RDS")
+
 # Yearbook selection
 
 prod_yearbook_selection <- prod_raw %>%

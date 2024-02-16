@@ -11,6 +11,8 @@ hc_export_options <- c("downloadPNG", "downloadJPEG", "downloadPDF", "downloadSV
 
 # Load data
 
+data_all <- readRDS("prod_all.RDS")
+
 data_division <- readRDS("prod_ISSCAAP_division.RDS")
 
 data_group <- readRDS("prod_ISSCAAP_group.RDS")
