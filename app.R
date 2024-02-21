@@ -15,25 +15,25 @@ source("helpers.R")
 
 ui <- function(request){
       fluidPage(
-        conditionalPanel(condition = "output.show != 'map' && output.show != 'chart' && output.show != 'table'",
-          navbarPage(title = a(href = "https://www.fao.org/fishery/en/collection/global_production?lang=en", target = "_blank", style="text-decoration:none;color:inherit", div(img(src = "fao-logo-blue-3lines-en.svg", id = "logo", height = "35px", style = "border-right: 1px solid grey; padding: 0 0.5rem; position: relative; margin:-15px 0px; display:right-align; "), "FishStat Global Production")),
+        conditionalPanel(condition = "output.show == null && output.show != 'map' && output.show != 'chart' && output.show != 'table'", style = "display: none;",
+          navbarPage(title = a(href = "https://www.fao.org/fishery/en/collection/global_production?lang=en", target = "_blank", style = "text-decoration:none;color:inherit", div(img(src = "fao-logo-blue-3lines-en.svg", id = "logo", height = "35px", style = "border-right: 1px solid grey; padding: 0 0.5rem; position: relative; margin:-15px 0px; display:right-align; "), "FishStat Global Production")),
            tabPanel("Data Explorer",
             sidebarLayout(
               sidebarPanel(
                 selectInput('species_choice', 'Species classification', choices = c('Yearbook/SOFIA Selection', 'ISSCAAP Division', 'ISSCAAP Group')),
                 conditionalPanel(
                   condition = "input.species_choice == 'Yearbook/SOFIA Selection'",
-                  uiOutput('yearbook_selection'),
+                  selectInput('yearbook_selection','Species group', choices = unique(data_yearbook$species_group), selected = "Aquatic animals", multiple = FALSE),
                   # helpText("This classification allows you to filter species by three main groups. 'Fish, crustaceans and molluscs, etc.' refers to species fully destined to human consumption. 'Aquatic plants' refer to algae species. 'Other aq. animals & products' refers to marine mammals, crocodiles, corals, pearls, mother-of-pearl, shells, and sponges species not destined to human consumption.")
                 ),
                 conditionalPanel(
                   condition = "input.species_choice == 'ISSCAAP Division'",
-                  uiOutput('isscaap_division'),
+                  selectInput('isscaap_division','Species group', choices = unique(sort(data_division$species_group)), multiple = FALSE),
                   helpText("Click ", a(href="https://www.fao.org/fishery/static/ASFIS/ISSCAAP.pdf", "here", target="_blank"), " for more information about the ISSCAAP classification.")
                 ),
                 conditionalPanel(
                   condition = "input.species_choice == 'ISSCAAP Group'",
-                  uiOutput('isscaap_group'),
+                  selectInput('isscaap_group','Species group', choices = unique(sort(data_group$species_group)), multiple = FALSE),
                   helpText("Click ", a(href="https://www.fao.org/fishery/static/ASFIS/ISSCAAP.pdf", "here", target="_blank"), " for more information about the ISSCAAP classification.")
                 ),
                 selectInput('year','Year', choices = sort(unique(data_yearbook$year), decreasing = TRUE), selected = max(unique(data_yearbook$year))),
@@ -96,15 +96,15 @@ ui <- function(request){
                   )
                 )
               ),
-              conditionalPanel(condition = "output.show == 'map'", 
-                               highchartOutput("countrymap_solo", height = "700px") %>% withSpinner()
-                               ),
-              conditionalPanel(condition = "output.show == 'chart'", 
-                               highchartOutput("chart_solo", height = "700px") %>% withSpinner()
-                               ),
-              conditionalPanel(condition = "output.show == 'table'", 
-                               DT::dataTableOutput("data_table_solo", height = "700px") %>% withSpinner()
-                               )
+        conditionalPanel(condition = "output.show == 'map'", 
+                         highchartOutput("countrymap_solo", height = "700px") %>% withSpinner()
+                         ),
+        conditionalPanel(condition = "output.show == 'chart'", 
+                         highchartOutput("chart_solo", height = "700px") %>% withSpinner()
+                         ),
+        conditionalPanel(condition = "output.show == 'table'", 
+                         DT::dataTableOutput("data_table_solo", height = "700px") %>% withSpinner()
+                         )
       )
 }
 
@@ -124,21 +124,21 @@ server <- function(input, output, session) {
   
   # Initialize conditional species filters
   
-  output$yearbook_selection <- renderUI({
-    selectInput('yearbook_selection','Species group', choices = unique(data_yearbook$species_group), selected = "Aquatic animals", multiple = FALSE)
-  })
-  
-  output$isscaap_division <- renderUI({
-    selectInput('isscaap_division','Species group', choices = unique(sort(data_division$species_group)), multiple = FALSE)
-  })
-  
-  output$isscaap_group <- renderUI({
-    selectInput('isscaap_group','Species group', choices = unique(sort(data_group$species_group)), multiple = FALSE)
-  })
+  # output$yearbook_selection <- renderUI({
+  #   selectInput('yearbook_selection','Species group', choices = unique(data_yearbook$species_group), selected = "Aquatic animals", multiple = FALSE)
+  # })
+  # 
+  # output$isscaap_division <- renderUI({
+  #   selectInput('isscaap_division','Species group', choices = unique(sort(data_division$species_group)), multiple = FALSE)
+  # })
+  # 
+  # output$isscaap_group <- renderUI({
+  #   selectInput('isscaap_group','Species group', choices = unique(sort(data_group$species_group)), multiple = FALSE)
+  # })
   
   # Make the choices for production source conditional on the other inputs
   
-  observeEvent(list(input$species_choice, input$yearbook_selection, input$isscaap_division, input$isscaap_group, input$year), ignoreInit = T,{
+  observeEvent(list(input$species_choice, input$yearbook_selection, input$isscaap_division, input$isscaap_group, input$year), ignoreInit = FALSE,{
     
     if (input$species_choice == 'Yearbook/SOFIA Selection') {req(input$yearbook_selection)}
     else if (input$species_choice == 'ISSCAAP Division') {req(input$isscaap_division)}
@@ -460,16 +460,15 @@ server <- function(input, output, session) {
   # Read values from state$values when we restore
   onRestored(function(state) {
     
-    updateCheckboxGroupInput(inputId = "source", 
-                             choices = data_all %>%
-                               {if(input$species_choice == "Yearbook/SOFIA Selection") filter(., yearbook_group_en == input$yearbook_selection) 
-                                 else if (input$species_choice == "ISSCAAP Division") filter(., conc_isscaap_division == input$isscaap_division) 
-                                 else if (input$species_choice == "ISSCAAP Group") filter(., conc_isscaap_group == input$isscaap_group)} %>%
-                               filter(year == input$year) %>%
-                               pull(production_source_name) %>%
-                               unique(),
-                             selected = state$values$prodsource
+    updateCheckboxGroupInput(
+      inputId = "source", 
+      choices = 
+        if (input$species_choice == 'Yearbook/SOFIA Selection') {sort(unique(data_yearbook[data_yearbook$species_group == input$yearbook_selection & data_yearbook$year == input$year,]$production_source_name))}
+      else if (input$species_choice == 'ISSCAAP Division') {sort(unique(data_division[data_division$species_group == input$isscaap_division & data_division$year == input$year,]$production_source_name))}
+      else if (input$species_choice == 'ISSCAAP Group') {sort(unique(data_group[data_group$species_group == input$isscaap_group & data_group$year == input$year,]$production_source_name))},
+      selected = state$values$prodsource
     )
+
   })
   
 }
