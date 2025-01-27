@@ -8,9 +8,6 @@ library(DT)
 library(shinyfullscreen)
 library(shinycssloaders)
 
-# library(rsconnect)
-# deployApp()
-
 source("helpers.R")
 
 ui <- function(request){
@@ -39,7 +36,7 @@ ui <- function(request){
                                     selectInput('isscaap_group','Species group', choices = unique(sort(data_group$species_group)), multiple = FALSE),
                                     helpText("Click ", a(href="https://www.fao.org/fishery/static/ASFIS/ISSCAAP.pdf", "here", target="_blank"), " for more information about the ISSCAAP classification.")
                                   ),
-                                  conditionalPanel( # this hard-coded condition isn't the ideal solution: better to check if the dataset has more than one unit based on the other filters, then display conditional panel
+                                  conditionalPanel( # this hard-coded condition isn't the best solution: better to check if the dataset has more than one unit based on the other filters, then display conditional panel
                                     condition = "input.yearbook_selection == 'Other aq. animals & products' || input.isscaap_division == '7 - Miscellaneous aquatic animals'",
                                     selectInput('unit','Unit', choices = unique(data_yearbook$unit), multiple = FALSE)
                                   ),
@@ -56,15 +53,15 @@ ui <- function(request){
                                   tabsetPanel(
                                     tabPanel(
                                       "Map", 
-                                      highchartOutput("countrymap", height = "700px") %>% withSpinner()
+                                      highchartOutput("countrymap", height = "850px") %>% withSpinner()
                                     ),
                                     tabPanel(
                                       "Chart", 
-                                      highchartOutput("chart", height = "700px") %>% withSpinner()
+                                      highchartOutput("chart", height = "850px") %>% withSpinner()
                                     ),
                                     tabPanel(
                                       "Table", 
-                                      DT::dataTableOutput("data_table", height = "700px") %>% withSpinner()
+                                      DT::dataTableOutput("data_table", height = "850px") %>% withSpinner()
                                     ),
                                   )
                                 )
@@ -170,6 +167,7 @@ server <- function(input, output, session) {
         else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
       {if (input$yearbook_selection == 'Other aq. animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
         else .} %>%
+      filter(value > 0) %>%
       rename(z = value) %>%
       group_by(country, species_group, unit, year, lat, lon) %>%
       summarise(z = sum(z)) %>%
@@ -323,9 +321,8 @@ server <- function(input, output, session) {
                      )
                    ),
                    chartOptions = list(
-                     chart = list(
-                       backgroundColor = "#FFFFFF"
-                     )
+                     chart = list(backgroundColor = "#FFFFFF"),
+                     legend = list(bubbleLegend = list(enabled = TRUE))
                    ),
                    sourceWidth = 1920,
                    sourceHeight = 1080,
@@ -404,7 +401,7 @@ server <- function(input, output, session) {
   output$chart <- chart
   output$chart_solo <- chart # can't refer to the same output twice in the UI
   
-  # Table of country production by commodity
+  # Table of country production
   
   data_table <- eventReactive(input$source, {
     
@@ -460,7 +457,7 @@ server <- function(input, output, session) {
               rownames = FALSE,
               class = "display",
               caption = title(), 
-              colnames = c("Country or area", "ISSCAAP group", "Year", "Value", "Unit", "Share (%)")) %>%
+              colnames = c("Country or area", "Species group", "Year", "Value", "Unit", "Share (%)")) %>%
       formatRound(c("share"), 1) %>%
       formatCurrency("value", currency = "", interval = 3, mark = " ", digits = 0)
   })
