@@ -16,7 +16,7 @@ ui <- function(request){
           condition = "output.show == null && output.show != 'map' && output.show != 'chart' && output.show != 'table'", 
           style = "display: none;", # Prevent flashing of the hidden UI elements when only showing the map/chart/table (somehow not currently working)
           
-          navbarPage(title = a(href = "https://www.fao.org/fishery/en/collection/global_production?lang=en", target = "_blank", style = "text-decoration:none;color:inherit", div(img(src = "fao-logo-blue-3lines-en.svg", id = "logo", height = "35px", style = "border-right: 1px solid grey; padding: 0 0.5rem; position: relative; margin:-15px 0px; display:right-align; "), "FishStat Global Production")),
+          navbarPage(title = a(href = "https://www.fao.org/fishery/en/collection/global_production?lang=en", target = "_blank", style = "text-decoration:none;color:inherit", div(img(src = "fao-logo-three-lines.svg", id = "logo", height = "35px", style = "border-right: 1px solid grey; padding: 0 0.5rem; position: relative; margin:-15px 0px; display:right-align; "), "FishStat Global Production")),
                      tabPanel("Data Explorer",
                               sidebarLayout(
                                 sidebarPanel(
@@ -101,7 +101,13 @@ ui <- function(request){
                                   tags$img(src = "chart_illustration.png"),
                                   h3("Table"),
                                   p("Finally, you can display a table listing the producers of the species group of your choice in the", em("Table"), "tab. The data can be exported by clicking on any of the buttons on the top left of the table."),
-                                  tags$img(src = "table_illustration.png")
+                                  tags$img(src = "table_illustration.png"),
+                                  h1("Map disclaimer"),
+                                  p("The boundaries and names shown and the designations used on this map do not imply the expression of any opinion whatsoever on the part of FAO concerning the legal status of any country, territory, city or area or of its authorities, or concerning the delimitation of its frontiers and boundaries."),
+                                  h1("License"),
+                                  tags$img(src = "cc_by.png"),
+                                  p(""),
+                                  p("This work is made available under the Creative Commons Attribution-4.0 International licence (CC BY 4.0 ", a(href = "https://creativecommons.org/licenses/by/4.0/legalcode.en", "https://creativecommons.org/licenses/by/4.0/legalcode.en", target="_blank", .noWS = c('after')), "). By using this database, you agree to be bound by the terms of this license and the ", a(href = "https://www.fao.org/contact-us/terms/db-terms-of-use/en", "FAO Statistical Database Terms of Use", target="_blank", .noWS = c('after')), ".")
                                   )
                                 )
                               )
@@ -118,7 +124,11 @@ ui <- function(request){
         conditionalPanel( # TABLE ONLY
           condition = "output.show == 'table'", 
           DT::dataTableOutput("data_table_solo", height = "700px") %>% withSpinner()
-          )
+          ),
+        tags$head(
+          tags$style(HTML('* {font-family: Open Sans, sans-serif !important;')),
+          tags$link(rel = "stylesheet", type = "text/css", href = "stylesheet.css")
+        )
       )
 }
 
@@ -167,7 +177,7 @@ server <- function(input, output, session) {
         else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
       {if (input$yearbook_selection == 'Other aq. animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
         else .} %>%
-      filter(value > 0) %>%
+      filter(value > 0) %>% # better not to show bubbles when production = 0
       rename(z = value) %>%
       group_by(country, species_group, unit, year, lat, lon) %>%
       summarise(z = sum(z)) %>%
@@ -457,7 +467,7 @@ server <- function(input, output, session) {
               rownames = FALSE,
               class = "display",
               caption = title(), 
-              colnames = c("Country or area", "Species group", "Year", "Value", "Unit", "Share (%)")) %>%
+              colnames = c("Country or area", paste0("Species group (", input$species_choice, ")"), "Year", "Value", "Unit", "Share (%)")) %>%
       formatRound(c("share"), 1) %>%
       formatCurrency("value", currency = "", interval = 3, mark = " ", digits = 0)
   })

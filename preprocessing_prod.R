@@ -8,7 +8,7 @@ library(highcharter)
 # Get production data from FAO's server
 
 temp <- tempfile()
-download.file("https://www.fao.org/fishery/static/Data/GlobalProduction_2024.1.0.zip", temp)
+download.file("https://www.fao.org/fishery/static/Data/GlobalProduction_2025.1.0.zip", temp)
 data <- read_csv(unz(temp, "Global_production_quantity.csv")) %>%
   clean_names()
 countries <- read_csv(unz(temp, "CL_FI_COUNTRY_GROUPS.csv"), na = "") %>% # adding na = "" so that Namibia's ISO2 code isn't interpreted as a missing value
