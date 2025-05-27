@@ -55,11 +55,11 @@ prod_raw <- data %>%
 
 # Add "China, " in front of the name for Taiwan as per OCC request
 
-prod_raw$country[prod_raw$country == "Taiwan Province of China"] <- "China, Taiwan Province of China"
+prod_raw$country[prod_raw$un_code == "158"] <- "China, Taiwan Province of China"
 
 # Join geographical coordinates
 
-cou_coordinates <- read_csv("https://raw.githubusercontent.com/pamdx/country_coordinates/refs/heads/main/country_coordinates.csv", na = "") %>%
+cou_coordinates <- read_csv("https://raw.githubusercontent.com/pamdx/country_coordinates/refs/heads/main/country_coordinates.csv") %>%
   select(un_code, lat, lon)
 
 prod_raw <- prod_raw %>%
@@ -67,10 +67,13 @@ prod_raw <- prod_raw %>%
 
 if (any(is.na(prod_raw$lat)) | any(is.na(prod_raw$lon))) {
   
-  stop("The entries above are missing coordinates")
-  
-  prod_raw %>%
-    filter(is.na(lat))
+  warning(paste("The following countries are missing coordinates:", 
+             prod_raw %>%
+               filter(is.na(lat)) %>%
+               pull(country) %>%
+               unique()
+             )
+       )
   
 }
 
