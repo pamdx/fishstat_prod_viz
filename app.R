@@ -11,12 +11,7 @@ library(shinycssloaders)
 source("helpers.R")
 
 ui <- function(request){
-      fluidPage(
-        conditionalPanel( # REGULAR UI
-          condition = "output.show == null && output.show != 'map' && output.show != 'chart' && output.show != 'table'", 
-          style = "display: none;", # Prevent flashing of the hidden UI elements when only showing the map/chart/table (somehow not currently working)
-          
-          navbarPage(title = a(href = "https://www.fao.org/fishery/en/collection/global_production?lang=en", target = "_blank", style = "text-decoration:none;color:inherit", div(img(src = "fao-logo-three-lines.svg", id = "logo", height = "35px", style = "border-right: 1px solid grey; padding: 0 0.5rem; position: relative; margin:-15px 0px; display:right-align; "), "FishStat Global Production")),
+        navbarPage(title = a(href = "https://www.fao.org/fishery/en/collection/global_production?lang=en", target = "_blank", style = "text-decoration:none;color:inherit", div(img(src = "fao-logo-three-lines.svg", id = "logo", height = "35px", style = "border-right: 1px solid grey; padding: 0 0.5rem; position: relative; margin:-15px 0px; display:right-align; "), "FishStat Global Production")),
                      tabPanel("Data Explorer",
                               sidebarLayout(
                                 sidebarPanel(
@@ -24,7 +19,7 @@ ui <- function(request){
                                   conditionalPanel(
                                     condition = "input.species_choice == 'Yearbook/SOFIA Selection'",
                                     selectInput('yearbook_selection','Species group', choices = unique(data_yearbook$species_group), selected = "Aquatic animals", multiple = FALSE),
-                                    # helpText("This classification allows you to filter species by three main groups. 'Fish, crustaceans and molluscs, etc.' refers to species fully destined to human consumption. 'Aquatic plants' refer to algae species. 'Other aq. animals & products' refers to marine mammals, crocodiles, corals, pearls, mother-of-pearl, shells, and sponges species not destined to human consumption.")
+                                    # helpText("This classification allows you to filter species by three main groups. 'Fish, crustaceans and molluscs, etc.' refers to species fully destined to human consumption. 'Aquatic plants' refer to algae species. 'Other aquatic animals & products' refers to marine mammals, crocodiles, corals, pearls, mother-of-pearl, shells, and sponges species not destined to human consumption.")
                                   ),
                                   conditionalPanel(
                                     condition = "input.species_choice == 'ISSCAAP Division'",
@@ -37,7 +32,7 @@ ui <- function(request){
                                     helpText("Click ", a(href="https://www.fao.org/fishery/static/ASFIS/ISSCAAP.pdf", "here", target="_blank"), " for more information about the ISSCAAP classification.")
                                   ),
                                   conditionalPanel( # this hard-coded condition isn't the best solution: better to check if the dataset has more than one unit based on the other filters, then display conditional panel
-                                    condition = "input.yearbook_selection == 'Other aq. animals & products' || input.isscaap_division == '7 - Miscellaneous aquatic animals'",
+                                    condition = "input.yearbook_selection == 'Other aquatic animals & products' || input.isscaap_division == '7 - Miscellaneous aquatic animals'",
                                     selectInput('unit','Unit', choices = unique(data_yearbook$unit), multiple = FALSE)
                                   ),
                                   selectInput('year','Year', choices = sort(unique(data_yearbook$year), decreasing = TRUE), selected = max(unique(data_yearbook$year))),
@@ -110,24 +105,10 @@ ui <- function(request){
                                   p("This work is made available under the Creative Commons Attribution-4.0 International licence (CC BY 4.0 ", a(href = "https://creativecommons.org/licenses/by/4.0/legalcode.en", "https://creativecommons.org/licenses/by/4.0/legalcode.en", target="_blank", .noWS = c('after')), "). By using this database, you agree to be bound by the terms of this license and the ", a(href = "https://www.fao.org/contact-us/terms/db-terms-of-use/en", "FAO Statistical Database Terms of Use", target="_blank", .noWS = c('after')), ".")
                                   )
                                 )
-                              )
-                     )
-          ),
-        conditionalPanel( # MAP ONLY
-          condition = "output.show == 'map'", 
-          highchartOutput("countrymap_solo", height = "700px") %>% withSpinner()
-          ),
-        conditionalPanel( # CHART ONLY
-          condition = "output.show == 'chart'", 
-          highchartOutput("chart_solo", height = "700px") %>% withSpinner()
-          ),
-        conditionalPanel( # TABLE ONLY
-          condition = "output.show == 'table'", 
-          DT::dataTableOutput("data_table_solo", height = "700px") %>% withSpinner()
-          ),
-        tags$head(
-          tags$link(rel = "stylesheet", type = "text/css", href = "stylesheet.css")
-        )
+                              ),
+                   tags$head(
+                     tags$link(rel = "stylesheet", type = "text/css", href = "stylesheet.css")
+                   )
       )
 }
 
@@ -143,19 +124,19 @@ server <- function(input, output, session) {
     else if (input$species_choice == 'ISSCAAP Division') {req(input$isscaap_division)}
     else if (input$species_choice == 'ISSCAAP Group') {req(input$isscaap_group)}
     
-    if (input$yearbook_selection == 'Other aq. animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') {req(input$unit)}
+    if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') {req(input$unit)}
     
     freezeReactiveValue(input, "source")
     updateCheckboxGroupInput(
       inputId = "source", 
       choices = 
-        if (input$species_choice == 'Yearbook/SOFIA Selection' & input$yearbook_selection != 'Other aq. animals & products') {sort(unique(data_yearbook[data_yearbook$species_group == input$yearbook_selection & data_yearbook$year == input$year,]$production_source_name))}
-      else if (input$species_choice == 'Yearbook/SOFIA Selection' & input$yearbook_selection == 'Other aq. animals & products') {sort(unique(data_yearbook[data_yearbook$species_group == input$yearbook_selection & data_yearbook$unit == input$unit & data_yearbook$year == input$year,]$production_source_name))}
+        if (input$species_choice == 'Yearbook/SOFIA Selection' & input$yearbook_selection != 'Other aquatic animals & products') {sort(unique(data_yearbook[data_yearbook$species_group == input$yearbook_selection & data_yearbook$year == input$year,]$production_source_name))}
+      else if (input$species_choice == 'Yearbook/SOFIA Selection' & input$yearbook_selection == 'Other aquatic animals & products') {sort(unique(data_yearbook[data_yearbook$species_group == input$yearbook_selection & data_yearbook$unit == input$unit & data_yearbook$year == input$year,]$production_source_name))}
       else if (input$species_choice == 'ISSCAAP Division') {sort(unique(data_division[data_division$species_group == input$isscaap_division & data_division$year == input$year,]$production_source_name))}
       else if (input$species_choice == 'ISSCAAP Group') {sort(unique(data_group[data_group$species_group == input$isscaap_group & data_group$year == input$year,]$production_source_name))},
       selected = 
-        if (input$species_choice == 'Yearbook/SOFIA Selection' & input$yearbook_selection != 'Other aq. animals & products') {sort(unique(data_yearbook[data_yearbook$species_group == input$yearbook_selection & data_yearbook$year == input$year,]$production_source_name))}
-      else if (input$species_choice == 'Yearbook/SOFIA Selection' & input$yearbook_selection == 'Other aq. animals & products') {sort(unique(data_yearbook[data_yearbook$species_group == input$yearbook_selection & data_yearbook$unit == input$unit & data_yearbook$year == input$year,]$production_source_name))}
+        if (input$species_choice == 'Yearbook/SOFIA Selection' & input$yearbook_selection != 'Other aquatic animals & products') {sort(unique(data_yearbook[data_yearbook$species_group == input$yearbook_selection & data_yearbook$year == input$year,]$production_source_name))}
+      else if (input$species_choice == 'Yearbook/SOFIA Selection' & input$yearbook_selection == 'Other aquatic animals & products') {sort(unique(data_yearbook[data_yearbook$species_group == input$yearbook_selection & data_yearbook$unit == input$unit & data_yearbook$year == input$year,]$production_source_name))}
       else if (input$species_choice == 'ISSCAAP Division') {sort(unique(data_division[data_division$species_group == input$isscaap_division & data_division$year == input$year,]$production_source_name))}
       else if (input$species_choice == 'ISSCAAP Group') {sort(unique(data_group[data_group$species_group == input$isscaap_group & data_group$year == input$year,]$production_source_name))}
     )
@@ -174,7 +155,7 @@ server <- function(input, output, session) {
       {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
         else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
         else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aq. animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
+      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
         else .} %>%
       filter(value > 0) %>% # better not to show bubbles when production = 0
       rename(z = value) %>%
@@ -199,7 +180,7 @@ server <- function(input, output, session) {
       {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
         else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
         else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aq. animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
+      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
         else .} %>%
       summarise(value = sum(value)) %>%
       pull() %>%
@@ -218,7 +199,7 @@ server <- function(input, output, session) {
       {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
         else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
         else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aq. animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
+      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
         else .} %>%
       group_by(production_source_name) %>%
       summarise(value = sum(value)) %>%
@@ -241,7 +222,7 @@ server <- function(input, output, session) {
         {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
           else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
           else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-        {if (input$yearbook_selection == 'Other aq. animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
+        {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
           else .} %>%
         group_by(production_source_name) %>%
         summarise(value = sum(value)) %>%
@@ -262,7 +243,7 @@ server <- function(input, output, session) {
       {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
         else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
         else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aq. animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
+      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
         else .} %>%
       group_by(country, species_group, year) %>%
       summarize(value = sum(value)) %>%
@@ -283,7 +264,7 @@ server <- function(input, output, session) {
       {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
         else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
         else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aq. animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
+      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
         else .} %>%
       summarise(unit = first(unit)) %>%
       pull()
@@ -340,7 +321,6 @@ server <- function(input, output, session) {
   )
   
   output$countrymap <- countrymap
-  output$countrymap_solo <- countrymap # can't refer to the same output twice in the UI
   
   # Bar chart of production share by country
   
@@ -355,7 +335,7 @@ server <- function(input, output, session) {
       {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
         else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
         else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aq. animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
+      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
         else .} %>%
       group_by(species_group, country, year) %>%
       summarise(value = sum(value)) %>%
@@ -408,7 +388,6 @@ server <- function(input, output, session) {
   })
   
   output$chart <- chart
-  output$chart_solo <- chart # can't refer to the same output twice in the UI
   
   # Table of country production
   
@@ -423,7 +402,7 @@ server <- function(input, output, session) {
       {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
         else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
         else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aq. animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
+      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
         else .} %>%
       group_by(country, species_group, year, unit) %>%
       summarize(value = sum(value)) %>%
@@ -472,20 +451,8 @@ server <- function(input, output, session) {
   })
   
   output$data_table <- interactive_table
-  output$data_table_solo <- interactive_table # can't refer to the same output twice in the UI
   
   ### BOOKMARKING-RELATED CODE
-  
-  # Parse query string to identify which elements should be shown (either everything or just one of the interactive visuals)
-  observe({
-    query <- parseQueryString(session$clientData$url_search)
-    if (!is.null(query[['show']])) {
-      output$show <- renderText({
-        query[['show']]
-      })
-      outputOptions(output, "show", suspendWhenHidden = FALSE)
-    }
-  })
   
   # Save extra values in state$values when we bookmark
   onBookmark(function(state) {
