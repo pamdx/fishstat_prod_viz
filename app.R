@@ -142,21 +142,27 @@ server <- function(input, output, session) {
     )
   })
   
+  # Save filtered data as a reactive variable to avoid a lot of code duplication
+  
+  filtered_data <- reactive({
+    switch(input$species_choice,
+           'Yearbook/SOFIA Selection' = data_yearbook,
+           'ISSCAAP Division' = data_division,
+           'ISSCAAP Group' = data_group) %>%
+      filter(year == input$year) %>%
+      filter(production_source_name %in% input$source) %>%
+      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection)
+        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division)
+        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
+      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
+        else .}
+  })
+  
   # Map of production by country
   
   data_map <- eventReactive(input$source, { # eventReactive is there to make sure the code doesn't execute before the production source input has updated (it is dependent on the other inputs)
     
-    switch(input$species_choice,
-           'Yearbook/SOFIA Selection' = data_yearbook, 
-           'ISSCAAP Division' = data_division, 
-           'ISSCAAP Group' = data_group) %>%
-      filter(year == input$year) %>%
-      filter(production_source_name %in% input$source) %>%
-      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
-        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
-        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
-        else .} %>%
+    filtered_data() %>%
       filter(value > 0) %>% # better not to show bubbles when production = 0
       rename(z = value) %>%
       group_by(country, species_group, unit, year, lat, lon) %>%
@@ -171,17 +177,7 @@ server <- function(input, output, session) {
   
   data_total <- eventReactive(input$source, {
     
-    switch(input$species_choice,
-           'Yearbook/SOFIA Selection' = data_yearbook, 
-           'ISSCAAP Division' = data_division, 
-           'ISSCAAP Group' = data_group) %>%
-      filter(year == input$year) %>%
-      filter(production_source_name %in% input$source) %>%
-      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
-        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
-        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
-        else .} %>%
+    filtered_data() %>%
       summarise(value = sum(value)) %>%
       pull() %>%
       addUnits()
@@ -190,17 +186,7 @@ server <- function(input, output, session) {
   
   data_capture_share <- eventReactive(input$source, {
     
-    switch(input$species_choice,
-           'Yearbook/SOFIA Selection' = data_yearbook, 
-           'ISSCAAP Division' = data_division, 
-           'ISSCAAP Group' = data_group) %>%
-      filter(year == input$year) %>%
-      filter(production_source_name %in% input$source) %>%
-      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
-        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
-        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
-        else .} %>%
+    filtered_data() %>%
       group_by(production_source_name) %>%
       summarise(value = sum(value)) %>%
       mutate(share = round(value/sum(value)*100, 0)) %>% 
@@ -213,17 +199,7 @@ server <- function(input, output, session) {
     
     if (length(input$source) > 1) {
       
-      switch(input$species_choice,
-             'Yearbook/SOFIA Selection' = data_yearbook, 
-             'ISSCAAP Division' = data_division, 
-             'ISSCAAP Group' = data_group) %>%
-        filter(year == input$year) %>%
-        filter(production_source_name %in% input$source) %>%
-        {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
-          else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
-          else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-        {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
-          else .} %>%
+      filtered_data() %>%
         group_by(production_source_name) %>%
         summarise(value = sum(value)) %>%
         mutate(share = round(value/sum(value)*100, 0)) %>% 
@@ -234,17 +210,7 @@ server <- function(input, output, session) {
   
   data_n <- eventReactive(input$source, {
     
-    switch(input$species_choice,
-           'Yearbook/SOFIA Selection' = data_yearbook, 
-           'ISSCAAP Division' = data_division, 
-           'ISSCAAP Group' = data_group) %>%
-      filter(year == input$year) %>%
-      filter(production_source_name %in% input$source) %>%
-      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
-        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
-        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
-        else .} %>%
+    filtered_data() %>%
       group_by(country, species_group, year) %>%
       summarize(value = sum(value)) %>%
       ungroup() %>%
@@ -255,17 +221,7 @@ server <- function(input, output, session) {
   
   data_unit <- eventReactive(input$source, {
     
-    switch(input$species_choice,
-           'Yearbook/SOFIA Selection' = data_yearbook, 
-           'ISSCAAP Division' = data_division, 
-           'ISSCAAP Group' = data_group) %>%
-      filter(year == input$year) %>%
-      filter(production_source_name %in% input$source) %>%
-      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
-        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
-        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
-        else .} %>%
+    filtered_data() %>%
       summarise(unit = first(unit)) %>%
       pull()
     
@@ -284,7 +240,7 @@ server <- function(input, output, session) {
   source = paste0("Source: FAO ", format(Sys.Date(), "%Y"), ". Global Production. In: Fisheries and Aquaculture. Rome. [Cited ", format(Sys.time(), "%A, %B %d %Y"), "]. 
                                 https://www.fao.org/fishery/en/collection/global_production?lang=en")
   
-  countrymap <- renderHighchart(
+  output$countrymap <- renderHighchart(
     
     highchart(type = "map") %>%
       hc_add_series(mapData = map, showInLegend = F) %>%
@@ -320,23 +276,11 @@ server <- function(input, output, session) {
       )
   )
   
-  output$countrymap <- countrymap
-  
   # Bar chart of production share by country
   
   data_chart <- eventReactive(input$source, {
     
-    switch(input$species_choice,
-           'Yearbook/SOFIA Selection' = data_yearbook, 
-           'ISSCAAP Division' = data_division, 
-           'ISSCAAP Group' = data_group) %>%
-      filter(year == input$year) %>%
-      filter(production_source_name %in% input$source) %>%
-      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
-        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
-        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
-        else .} %>%
+    filtered_data() %>%
       group_by(species_group, country, year) %>%
       summarise(value = sum(value)) %>%
       group_by() %>%
@@ -354,7 +298,7 @@ server <- function(input, output, session) {
   }
   )
   
-  chart <- renderHighchart({
+  output$chart <- renderHighchart({
     hchart(data_chart(), 
            type = "column", 
            hcaes(x = country, y = share), 
@@ -387,23 +331,11 @@ server <- function(input, output, session) {
       )
   })
   
-  output$chart <- chart
-  
   # Table of country production
   
   data_table <- eventReactive(input$source, {
     
-    switch(input$species_choice,
-           'Yearbook/SOFIA Selection' = data_yearbook, 
-           'ISSCAAP Division' = data_division, 
-           'ISSCAAP Group' = data_group) %>%
-      filter(year == input$year) %>%
-      filter(production_source_name %in% input$source) %>%
-      {if (input$species_choice == 'Yearbook/SOFIA Selection') filter(., species_group %in% input$yearbook_selection) 
-        else if (input$species_choice == 'ISSCAAP Division') filter(., species_group %in% input$isscaap_division) 
-        else if (input$species_choice == 'ISSCAAP Group') filter(., species_group %in% input$isscaap_group)} %>%
-      {if (input$yearbook_selection == 'Other aquatic animals & products' | input$isscaap_division == '7 - Miscellaneous aquatic animals') filter(., unit %in% input$unit)
-        else .} %>%
+    filtered_data() %>%
       group_by(country, species_group, year, unit) %>%
       summarize(value = sum(value)) %>%
       ungroup() %>%
@@ -418,7 +350,7 @@ server <- function(input, output, session) {
   }
   )
   
-  interactive_table <- DT::renderDataTable(server = FALSE, { # server = FALSE used to make sure the entire dataset is downloaded when using the buttons
+  output$data_table <- DT::renderDataTable(server = FALSE, { # server = FALSE used to make sure the entire dataset is downloaded when using the buttons
     datatable(data_table(),
               extensions = 'Buttons',
               options = list(
@@ -449,8 +381,6 @@ server <- function(input, output, session) {
       formatRound(c("share"), 1) %>%
       formatCurrency("value", currency = "", interval = 3, mark = " ", digits = 0)
   })
-  
-  output$data_table <- interactive_table
   
   ### BOOKMARKING-RELATED CODE
   
