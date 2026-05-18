@@ -38,10 +38,21 @@ ui <- function(request){
                                   selectInput('year','Year', choices = sort(unique(data_yearbook$year), decreasing = TRUE), selected = max(unique(data_yearbook$year))),
                                   checkboxGroupInput('source','Production source', choices = c("Aquaculture production", "Capture production")),
                                   hr(),
-                                  fullscreen_button("full_screen", label = "Fullscreen On/Off", icon = shiny::icon("expand", lib = "font-awesome"), target = NULL),
+                                  div(
+                                    style = "display:grid;",   # grid makes children stretch to full width naturally
+                                    fullscreen_button("full_screen",
+                                                      label  = "Fullscreen On/Off",
+                                                      icon   = shiny::icon("expand", lib = "font-awesome"),
+                                                      target = NULL)
+                                  ),
                                   br(),
-                                  br(),
-                                  bookmarkButton(label = "Share this view", icon = shiny::icon("share-alt", lib = "font-awesome")),
+                                  div(
+                                    style = "display:grid;",
+                                    bookmarkButton(
+                                      label = "Share this view",
+                                      icon  = shiny::icon("share-alt", lib = "font-awesome")
+                                    )
+                                  ),
                                   width = 2
                                 ),
                                 mainPanel(
@@ -344,8 +355,7 @@ server <- function(input, output, session) {
       mutate(total = sum(value)) %>%
       ungroup() %>%
       mutate(share = value/total*100) %>%
-      select(country, species_group, year, value, unit, share) %>%
-      add_row(country = source) # add citation in the last row
+      select(country, species_group, year, value, unit, share)
     
   }
   )
@@ -353,6 +363,10 @@ server <- function(input, output, session) {
   output$data_table <- DT::renderDataTable(server = FALSE, { # server = FALSE used to make sure the entire dataset is downloaded when using the buttons
     datatable(data_table(),
               extensions = 'Buttons',
+              caption    = htmltools::tags$caption(
+                style = "caption-side:bottom; text-align:left; font-size:11px; color:#777; padding-top:6px;",
+                source
+              ),
               options = list(
                 paging = TRUE,
                 searching = TRUE,
@@ -364,10 +378,13 @@ server <- function(input, output, session) {
                   extend = 'collection',
                   buttons = list(
                     list(extend = 'csv', 
+                         title = title(),
                          filename = paste0("(Table) ", title())),
                     list(extend = 'excel', 
+                         title = title(), 
                          filename = paste0("(Table) ", title())),
                     list(extend = 'pdf', 
+                         title = title(), 
                          filename = paste0("(Table) ", title()))),
                   text = 'Download'
                 )),
@@ -376,7 +393,6 @@ server <- function(input, output, session) {
               ),
               rownames = FALSE,
               class = "display",
-              caption = title(), 
               colnames = c("Country or area", paste0("Species group (", input$species_choice, ")"), "Year", "Value", "Unit", "Share (%)")) %>%
       formatRound(c("share"), 1) %>%
       formatCurrency("value", currency = "", interval = 3, mark = " ", digits = 0)
