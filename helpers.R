@@ -34,3 +34,7 @@ addUnits <- function(n) {
                                         )))))
   return(labels)
 }
+
+# Map disclaimer
+
+map_disclaimer <- "The boundaries and names shown and the designations used on this map do not imply the expression of any opinion whatsoever on the part of FAO concerning the legal status of any country, territory, city or area or of its authorities, or concerning the delimitation of its frontiers and boundaries."

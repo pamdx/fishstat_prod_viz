@@ -5,7 +5,7 @@ library(tidyr)
 library(tibble)
 library(readr)
 library(DT)
-library(shinyfullscreen)
+# library(shinyfullscreen)
 library(shinycssloaders)
 
 source("helpers.R")
@@ -38,19 +38,30 @@ ui <- function(request){
                                   selectInput('year','Year', choices = sort(unique(data_yearbook$year), decreasing = TRUE), selected = max(unique(data_yearbook$year))),
                                   checkboxGroupInput('source','Production source', choices = c("Aquaculture production", "Capture production")),
                                   hr(),
+                                  # div(
+                                  #   style = "display:grid;",   # grid makes children stretch to full width naturally
+                                  #   fullscreen_button("full_screen",
+                                  #                     label  = "Fullscreen On/Off",
+                                  #                     icon   = shiny::icon("expand", lib = "font-awesome"),
+                                  #                     target = NULL)
+                                  # ),
+                                  # br(),
+                                  # div(
+                                  #   style = "display:grid;",
+                                  #   bookmarkButton(
+                                  #     label = "Share this view",
+                                  #     icon  = shiny::icon("share-alt", lib = "font-awesome")
+                                  #   )
+                                  # ),
+                                  # br(),
                                   div(
-                                    style = "display:grid;",   # grid makes children stretch to full width naturally
-                                    fullscreen_button("full_screen",
-                                                      label  = "Fullscreen On/Off",
-                                                      icon   = shiny::icon("expand", lib = "font-awesome"),
-                                                      target = NULL)
-                                  ),
-                                  br(),
-                                  div(
-                                    style = "display:grid;",
-                                    bookmarkButton(
-                                      label = "Share this view",
-                                      icon  = shiny::icon("share-alt", lib = "font-awesome")
+                                    style = "display:grid; margin-bottom: 15px;",
+                                    tags$a(
+                                      href = "https://foodandagricultureorganization.shinyapps.io/fishstat_viz_portal/",
+                                      target = "_self",
+                                      class = "btn btn-default",
+                                      shiny::icon("house", lib = "font-awesome"),
+                                      "Explore more FishStat datasets"
                                     )
                                   ),
                                   width = 2
@@ -84,7 +95,7 @@ ui <- function(request){
                               fluidPage(
                                 mainPanel(
                                   h1("How to use this tool"),
-                                  p("This website features interactive visualizations to explore FAO's", a(href="https://www.fao.org/fishery/en/collection/global_production?lang=en", "Global Production", target="_blank"), "dataset."),
+                                  p("This website features interactive visualizations to explore FAO's", a(href="https://www.fao.org/fishery/en/collection/global_production?lang=en", "Global Fishery and Aquaculture Production", target="_blank"), "dataset."),
                                   p("We hope you enjoy this application. Click ", a(href="https://www.fao.org/fishery/en/fishstat", "here", target="_blank"), "to learn more about FAO's Fisheries and Aquaculture statistics."),
                                   p("We encourage users to provide their feedback or ask their questions about this tool at", a(href="mailto:Fish-Statistics-Inquiries@fao.org", "Fish-Statistics-Inquiries@fao.org", target="_blank", .noWS = c('after')), "."),
                                   h2("The Data Explorer"),
@@ -97,7 +108,7 @@ ui <- function(request){
                                     tags$li("The ", em("ISSCAAP Division"), " classification consists of more specific species groups that correspond to the two-digits groups of the ", a(href="https://www.fao.org/fishery/static/ASFIS/ISSCAAP.pdf", "ISSCAAP classification", target="_blank", .noWS = c('after')), ".")
                                   ),
                                   p("Please note that a few species groups (e.g. Yearbook/SOFIA Selection's", em("Other aquatic animals and products", .noWS = c('after')), ") comprise both species that are accounted for in tonnes - live weight and species that are accounted for in number of specimen produced. In order to avoid the aggregation of production in different units, a", em("Unit") , "filter will be displayed when selecting these species groups."),
-                                  p("The user can also use the filter in this panel to select the year of the data and the production source (aquaculture and/or capture). Finally, the two buttons on the bottom of the side panels allow the user to display the application in fullscreen and to share the current view with somebody else."), 
+                                  p("The user can also use the filter in this panel to select the year of the data and the production source (aquaculture and/or capture). Finally, the buttons on the bottom of the side panels allow the user to (i) display the application in fullscreen, (ii ) share the current view with somebody else and (iii) navigate to a page where more FishStat datasets can be explored interactively."), 
                                   tags$img(src = "side_panel.png"),
                                   h3("Map"),
                                   p("The data is first represented on a map under the", em("Map"), "tab. Each bubble represents a country or territory's capture and/or aquaculture production for the species group and year selected in the side panel. Placing your cursor on individual bubbles will give you more information on a given country or territory's production. You can zoom in or out of the map using the + and - buttons on the top left of the map. This is particularly useful to better explore data in areas of the world with a high density of countries or territories. Finally, you can export the map as an image by clicking on the three lines on the top right of the map."), 
@@ -109,7 +120,7 @@ ui <- function(request){
                                   p("Finally, you can display a table listing the producers of the species group of your choice in the", em("Table"), "tab. The data can be exported by clicking on any of the buttons on the top left of the table."),
                                   tags$img(src = "table_illustration.png"),
                                   h1("Map disclaimer"),
-                                  p("The boundaries and names shown and the designations used on this map do not imply the expression of any opinion whatsoever on the part of FAO concerning the legal status of any country, territory, city or area or of its authorities, or concerning the delimitation of its frontiers and boundaries."),
+                                  p(map_disclaimer),
                                   h1("License"),
                                   tags$img(src = "cc_by.png"),
                                   p(""),
@@ -117,6 +128,13 @@ ui <- function(request){
                                   )
                                 )
                               ),
+                   tabPanel("Metadata",
+                            fluidPage(
+                              div(style = 'padding-left: 400px;',
+                                  includeHTML("./www/prod_metadata.html")
+                              )
+                            )
+                   ),
                    tags$head(
                      tags$link(rel = "stylesheet", type = "text/css", href = "stylesheet.css")
                    )
@@ -248,8 +266,8 @@ server <- function(input, output, session) {
     paste0('Total ', ifelse(length(input$source) > 1, "production", tolower(input$source)), " (", tolower(data_unit()) ,"): ", data_total(), ifelse(length(input$source) > 1, paste0(" (", data_capture_share(), "% capture, ", data_aquaculture_share(), "% aquaculture)"), ""), ", number of producing countries/areas: ", data_n())
   })
   
-  source = paste0("Source: FAO ", format(Sys.Date(), "%Y"), ". Global Production. In: Fisheries and Aquaculture. Rome. [Cited ", format(Sys.time(), "%A, %B %d %Y"), "]. 
-                                https://www.fao.org/fishery/en/collection/global_production?lang=en")
+  source = paste0("Source: FAO ", format(Sys.Date(), "%Y"), ". FishStat: Global Fishery and Aquaculture Production. [Accessed on ", format(Sys.time(), "%d %B %Y"), "]. In: FishStatj. 
+                                Available at: https://www.fao.org/fishery/en/collection/global_production?lang=en. Licence: CC-BY-4.0.")
   
   output$countrymap <- renderHighchart(
     
@@ -270,7 +288,7 @@ server <- function(input, output, session) {
                 layout = "horizontal", 
                 align = "right",
                 verticalAlign = "bottom") %>%
-      hc_caption(text = source) %>%
+      hc_caption(text = paste(map_disclaimer, source, sep = "<br> <br>")) %>%
       hc_exporting(enabled = TRUE, 
                    buttons = list(
                      contextButton = list(
